@@ -473,6 +473,7 @@ class UpdateGameSettingsRequest(BaseModel):
     exe: str = ""
     args: list[str] = []
     save_path: str = ""
+    tags: list[str] = []
 
 @app.get("/api/game/{game_id}/hltb")
 async def get_hltb_data(game_id: str, refresh: bool = False):
@@ -729,6 +730,7 @@ async def update_game_settings(request: UpdateGameSettingsRequest):
             data[request.id]["alias"] = request.alias
             data[request.id]["exe"] = request.exe
             data[request.id]["args"] = request.args
+            data[request.id]["tags"] = request.tags
             if request.save_path:
                 data[request.id]["save_path"] = request.save_path
             save_json(config_path, data)
@@ -1317,6 +1319,43 @@ async def force_update_config():
         
     return {"status": "started"}
 
+@app.post("/api/library/check_updates")
+async def trigger_update_check():
+    """Manually triggers the update checker."""
+    threading.Thread(target=check_updates_task, daemon=True).start()
+    return {"status": "started"}
+
+@app.post("/api/game/{game_id}/setup")
+async def run_game_setup(game_id: str):
+    """Searches for and runs a Setup.exe/ISO in the game's folder."""
+    user_config = UserConfig(CONFIG_FOLDER, "userconfig.json")
+    for path in user_config.GAME_PATHS:
+        game_folder = os.path.join(path, game_id)
+        if os.path.exists(game_folder):
+            # 1. Search for Setup.exe
+            for root, dirs, files in os.walk(game_folder):
+                for file in files:
+                    if file.lower() in ["setup.exe", "install.exe"]:
+                        setup_path = os.path.join(root, file)
+                        try:
+                            os.startfile(setup_path)
+                            return {"status": "started", "file": setup_path}
+                        except Exception as e:
+                             raise HTTPException(status_code=500, detail=f"Failed to start setup: {e}")
+            
+            # 2. Search for ISO
+            for root, dirs, files in os.walk(game_folder):
+                 for file in files:
+                    if file.lower().endswith(".iso"):
+                         iso_path = os.path.join(root, file)
+                         try:
+                             os.startfile(iso_path) # Windows mounts ISOs automatically on open
+                             return {"status": "mounted", "file": iso_path}
+                         except Exception as e:
+                             raise HTTPException(status_code=500, detail=f"Failed to mount ISO: {e}")
+
+    raise HTTPException(status_code=404, detail="No setup file or ISO found.")
+
 @app.post("/api/launch/{game_id}")
 async def launch_game(game_id: str):
     user_config = UserConfig(CONFIG_FOLDER, "userconfig.json")
@@ -1518,6 +1557,7 @@ async def get_library():
                 "installed": True,
                 "poster": f"http://127.0.0.1:12345/cache/{game_id}.png",
                 "categories": info.get("categorys", []),
+                "tags": info.get("tags", []),
                 "hidden": info.get("hidden", False),
                 "path": full_path
             }))
@@ -1539,6 +1579,7 @@ async def get_library():
                 "installed": False,
                 "poster": f"http://127.0.0.1:12345/cache/{game_id}.png",
                 "categories": info.get("categorys", []),
+                "tags": info.get("tags", []),
                 "hidden": info.get("hidden", False)
             }))
 

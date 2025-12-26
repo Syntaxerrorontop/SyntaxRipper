@@ -15,6 +15,49 @@ let runningGames = []; // List of running game IDs
 window.collapsedCategories = new Set(); 
 
 // --- Custom Dialogs ---
+function showToast(message, type = 'info') {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.style.cssText = 'position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none;';
+        document.body.appendChild(container);
+    }
+    
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.style.cssText = `
+        background: #252526; 
+        color: white; 
+        padding: 12px 20px; 
+        border-radius: 6px; 
+        box-shadow: 0 4px 12px rgba(0,0,0,0.5); 
+        border-left: 4px solid ${type === 'error' ? '#ff6b6b' : type === 'success' ? '#28a745' : '#007acc'};
+        opacity: 0;
+        transform: translateY(20px);
+        transition: all 0.3s ease;
+        pointer-events: auto;
+        min-width: 250px;
+        font-size: 14px;
+    `;
+    toast.innerHTML = `<div style="font-weight:bold; margin-bottom:4px;">${type.toUpperCase()}</div><div>${message}</div>`;
+    
+    container.appendChild(toast);
+    
+    // Animate In
+    requestAnimationFrame(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateY(0)';
+    });
+    
+    // Animate Out
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(20px)';
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
+}
+
 function showAlert(title, message) {
     return new Promise((resolve) => {
         const overlay = document.getElementById('modal-overlay');
@@ -149,11 +192,12 @@ function handleWsMessage(msg) {
         const titleEl = document.getElementById('dl-title');
         if (titleEl && msg.data.filename) titleEl.textContent = msg.data.filename;
     } else if (msg.type === 'complete') {
+        showToast(msg.data.message || "Operation Complete", "success");
         refreshLibrary();
     } else if (msg.type === 'scraper_status') {
         updateFooterStatus(msg.data);
     } else if (msg.type === 'update_available') {
-        showAlert("Update Available", `A new version (${msg.data.latest}) is available for ${msg.data.name}.`);
+        showToast(`Update Available: ${msg.data.name} (${msg.data.latest})`, "info");
         refreshLibrary();
     } else if (msg.type === 'hltb_update') {
         // If currently viewing this game, update the display
@@ -672,6 +716,7 @@ async function openGameSettings(game) {
             document.getElementById('gs-pre-script').value = fullData.pre_launch_script || "";
             document.getElementById('gs-post-script').value = fullData.post_exit_script || "";
             document.getElementById('gs-save-path').value = fullData.save_path || "";
+            document.getElementById('gs-tags').value = (fullData.tags || []).join(', ');
             
             const candidateSelect = document.getElementById('gs-save-candidates');
             const candidates = fullData.save_candidates || [];
@@ -816,6 +861,7 @@ async function saveGameSettings() {
     const exe = document.getElementById('gs-exe').value;
     const args = document.getElementById('gs-args').value.split('\n').map(a => a.trim()).filter(a => a.length > 0);
     const savePath = document.getElementById('gs-save-path').value;
+    const tags = document.getElementById('gs-tags').value.split(',').map(t => t.trim()).filter(t => t.length > 0);
     const pre = document.getElementById('gs-pre-script').value;
     const post = document.getElementById('gs-post-script').value;
     
@@ -824,7 +870,7 @@ async function saveGameSettings() {
         await fetch(`${API_URL}/api/library/update_settings`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ id: currentSettingsGameId, alias, exe, args, save_path: savePath })
+            body: JSON.stringify({ id: currentSettingsGameId, alias, exe, args, save_path: savePath, tags: tags })
         });
         
         // Save Scripts
@@ -1099,6 +1145,22 @@ function showDetails(gameId) {
             };
             actions.appendChild(upbtn);
         }
+        
+        // Setup Wizard Button
+        const setupBtn = document.createElement('button');
+        setupBtn.className = 'btn btn-secondary';
+        setupBtn.style.marginLeft = '10px';
+        setupBtn.textContent = 'Setup';
+        setupBtn.onclick = async () => {
+             if (await showConfirm("Run Setup", "Search for and run Setup.exe or Mount ISO in game folder?", false)) {
+                 try {
+                     const res = await fetch(`${API_URL}/api/game/${game.id}/setup`, { method: 'POST' });
+                     if (res.ok) showToast("Setup started!", "success");
+                     else showToast("No setup file found.", "error");
+                 } catch(e) { showToast(e.message, "error"); }
+             }
+        };
+        actions.appendChild(setupBtn);
 
         if (!game.id.startsWith("ext_")) {
             const fbtn = document.createElement('button'); fbtn.className = 'btn btn-secondary'; fbtn.textContent = 'Folder'; fbtn.onclick = () => openFolder(game.id); actions.appendChild(fbtn);
