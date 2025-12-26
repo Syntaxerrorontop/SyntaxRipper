@@ -271,6 +271,7 @@ function renderSettings() {
     const debridIn = document.getElementById('debridKeyInput'); if (debridIn) debridIn.value = currentSettings.real_debrid_key || "";
     const dpathIn = document.getElementById('downloadPathInput'); if (dpathIn) dpathIn.value = currentSettings.download_path || "";
     const dcacheIn = document.getElementById('downloadCachePathInput'); if (dcacheIn) dcacheIn.value = currentSettings.download_cache_path || "";
+    const gpathIn = document.getElementById('installedGamesPathInput'); if (gpathIn) gpathIn.value = currentSettings.installed_games_path || "";
     const mpathIn = document.getElementById('mediaOutputPathInput'); if (mpathIn) mpathIn.value = currentSettings.media_output_path || "";
     const speedIn = document.getElementById('speedLimitInput'); if (speedIn) speedIn.value = currentSettings.speed || 0;
     const speedEnabledIn = document.getElementById('speedLimitEnabledInput'); if (speedEnabledIn) speedEnabledIn.checked = currentSettings.speed_enabled || false;
@@ -362,6 +363,11 @@ async function changeDownloadPath() {
 async function changeDownloadCachePath() {
     const path = await ipcRenderer.invoke('select-folder');
     if (path) { currentSettings.download_cache_path = path; await saveSettings(); }
+}
+
+async function changeInstalledGamesPath() {
+    const path = await ipcRenderer.invoke('select-folder');
+    if (path) { currentSettings.installed_games_path = path; await saveSettings(); }
 }
 
 async function changeMediaOutputPath() {
@@ -494,6 +500,8 @@ async function saveSettings() {
         // Mappings are updated in-place in currentSettings during remap, just need to send them
         
         // Media Output Path is updated in-place by changeMediaOutputPath, but just in case:
+        const dcacheIn = document.getElementById('downloadCachePathInput'); if (dcacheIn) currentSettings.download_cache_path = dcacheIn.value;
+        const gpathIn = document.getElementById('installedGamesPathInput'); if (gpathIn) currentSettings.installed_games_path = gpathIn.value;
         const mpathIn = document.getElementById('mediaOutputPathInput'); if (mpathIn) currentSettings.media_output_path = mpathIn.value;
 
         await fetch(`${API_URL}/api/settings`, {

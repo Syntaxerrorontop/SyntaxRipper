@@ -1144,7 +1144,11 @@ class AsyncDownloadManager:
     def _finalize_download(self, cache_path, file_ending):
         self._emit("status", "Finalizing...")
         
-        target_dir = self.current_download_info["target_dir"]
+        # Use configured installation directory
+        target_dir = self.userconfig.INSTALLED_GAMES_PATH
+        if not os.path.exists(target_dir):
+            os.makedirs(target_dir)
+            
         item_hash = self.current_download_info["hash"]
         final_filename = f"{item_hash}.{file_ending}"
         final_path = os.path.join(target_dir, final_filename)

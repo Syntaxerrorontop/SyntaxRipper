@@ -440,6 +440,7 @@ class SettingsUpdate(BaseModel):
     game_paths: list[str]
     download_path: str
     download_cache_path: str
+    installed_games_path: str
     username: str
     language: str = "english"
     rawg_api_key: str = ""
@@ -1103,6 +1104,7 @@ def get_settings():
         "game_paths": config.GAME_PATHS,
         "download_path": config.DOWNLOAD_PATH,
         "download_cache_path": config.DOWNLOAD_CACHE_PATH,
+        "installed_games_path": config.INSTALLED_GAMES_PATH,
         "username": config.USERNAME,
         "language": config.LANGUAGE,
         "rawg_api_key": config.RAWG_API_KEY,
@@ -1170,6 +1172,7 @@ def update_settings(settings: SettingsUpdate):
     config.GAME_PATHS = settings.game_paths
     config.DOWNLOAD_PATH = settings.download_path
     config.DOWNLOAD_CACHE_PATH = settings.download_cache_path
+    config.INSTALLED_GAMES_PATH = settings.installed_games_path
     config.USERNAME = new_user
     config.LANGUAGE = new_lang
     config.DRY_LAUNCH = settings.dry_launch

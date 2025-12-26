@@ -116,6 +116,7 @@ class UserConfig:
             "game_paths": [os.path.join(os.getcwd(), "Games")],
             "download_path": os.path.join(os.getcwd(), "Downloads"),
             "download_cache_path": os.path.join(os.getcwd(), "DownloadCache"),
+            "installed_games_path": os.path.join(os.getcwd(), "Games"),
             "default_username": "Guest",
             "rawg_api_key": "",
             "auto_update_games": False,
@@ -181,6 +182,7 @@ class UserConfig:
         self.GAME_PATHS = self._data.get("game_paths", [])
         self.DOWNLOAD_PATH = self._data.get("download_path", os.path.join(os.getcwd(), "Downloads"))
         self.DOWNLOAD_CACHE_PATH = self._data.get("download_cache_path", os.path.join(os.getcwd(), "DownloadCache"))
+        self.INSTALLED_GAMES_PATH = self._data.get("installed_games_path", os.path.join(os.getcwd(), "Games"))
         self.USERNAME = self._data.get("default_username", "Guest")
         self.LANGUAGE = self._data.get("default_language", "english")
         self.RAWG_API_KEY = self._data.get("rawg_api_key", "")
@@ -213,6 +215,7 @@ class UserConfig:
         self._data["game_paths"] = self.GAME_PATHS
         self._data["download_path"] = self.DOWNLOAD_PATH
         self._data["download_cache_path"] = self.DOWNLOAD_CACHE_PATH
+        self._data["installed_games_path"] = self.INSTALLED_GAMES_PATH
         self._data["default_username"] = self.USERNAME
         self._data["default_language"] = self.LANGUAGE
         self._data["rawg_api_key"] = self.RAWG_API_KEY
