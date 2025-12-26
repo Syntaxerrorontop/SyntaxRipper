@@ -266,28 +266,43 @@ class SiteScraper:
         try:
             page_content = scraper.get_html(url)
             soup = BeautifulSoup(page_content, 'html.parser')
-            h1_text = soup.h1.string.split("Free Download")
             
-            name = h1_text[0].strip()
-            version = h1_text[1].strip().removeprefix("(").removesuffix(")")
+            h1 = soup.find("h1")
+            h1_string = h1.get_text() if h1 else ""
             
-            logging.info("Downloader:steamrip Extracting downloadable links")
+            if "Free Download" in h1_string:
+                h1_text = h1_string.split("Free Download")
+                name = h1_text[0].strip()
+                version = h1_text[1].strip().removeprefix("(").removesuffix(")") if len(h1_text) > 1 else "N/A"
+            else:
+                name = get_name_from_url(url)
+                version = "N/A"
+            
+            logging.info(f"Downloader:steamrip Extracting links for {name} ({version})")
             
             found_links = {}
             
             for key, data_ in _download_data["provider_support"].items():
-
-                regex_finder = re.findall(data_["pattern"], page_content)
+                if "pattern" not in data_: continue
                 
-                if regex_finder and len(regex_finder) == 1:
+                # Improved regex to handle optional http/https and different quote types
+                pattern = data_["pattern"]
+                # If pattern starts with href=", make it more flexible
+                if pattern.startswith('href="'):
+                    # e.g. href="//buzzheavier\.com/([^"]+)" -> href=["'](?:https?:)?//buzzheavier\.com/([^"']+)["']
+                    domain = pattern.split('//')[1].split('/')[0].replace('\\', '')
+                    flexible_pattern = f'href=["\'](?:https?:)?//{domain}/([^"\']+)["\']'
+                    regex_finder = re.findall(flexible_pattern, page_content)
+                else:
+                    regex_finder = re.findall(pattern, page_content)
+                
+                if regex_finder:
+                    # Take the first match
                     found_links[key] = data_["formaturl"].format(detected_link = regex_finder[0])
                 else:
                     found_links[key] = None
             
             logging.info(f"Downloader:steamrip Detected download links: {found_links}")
-            
-            logging.info(f"Downloader:steamrip Generating Filename")
-            
             return found_links, name, version
                 
         except Exception as e:
