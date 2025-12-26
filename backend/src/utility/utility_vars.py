@@ -1,8 +1,8 @@
 import os
 
-# Use the user's Documents folder for defaults
-# This matches the path: C:\Users\<User>\Documents\SyntaxRipper
-APPDATA_CACHE_PATH = os.path.join(os.path.expanduser("~"), "Documents", "SyntaxRipper")
+# Use the standard Windows AppData/Roaming folder for internal data
+# This matches the path: C:\Users\<User>\AppData\Roaming\SyntaxRipper
+APPDATA_CACHE_PATH = os.path.join(os.getenv('APPDATA'), "SyntaxRipper")
 
 if not os.path.exists(APPDATA_CACHE_PATH):
     os.makedirs(APPDATA_CACHE_PATH)

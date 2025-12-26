@@ -102,6 +102,9 @@ class File:
 class UserConfig:
     def __init__(self, in_path, filename, quite=False):
         
+        # Define the Documents folder path for large files
+        doc_path = os.path.join(os.path.expanduser("~"), "Documents", "SyntaxRipper")
+        
         default_data = {
             "install_commen_redist": True, 
             "shutil_move_error_replace": True, 
@@ -113,11 +116,11 @@ class UserConfig:
             "exclude_message": True, 
             "resume_on_startup": True,
             "dry_launch": False,
-            "game_paths": [os.path.join(in_path, "..", "Games")],
-            "download_path": os.path.join(in_path, "..", "Downloads"),
-            "download_cache_path": os.path.join(in_path, "..", "DownloadCache"),
-            "installed_games_path": os.path.join(in_path, "..", "Games"),
-            "media_output_path": os.path.join(in_path, "..", "ConvertedMedia"),
+            "game_paths": [os.path.join(doc_path, "Games")],
+            "download_path": os.path.join(doc_path, "Downloads"),
+            "download_cache_path": os.path.join(doc_path, "DownloadCache"),
+            "installed_games_path": os.path.join(doc_path, "Games"),
+            "media_output_path": os.path.join(doc_path, "ConvertedMedia"),
             "default_username": "Guest",
             "rawg_api_key": "",
             "auto_update_games": False,
