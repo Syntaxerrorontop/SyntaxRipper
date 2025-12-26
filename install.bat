@@ -4,7 +4,7 @@ setlocal EnableDelayedExpansion
 set "APP_NAME=SyntaxRipper"
 set "INSTALL_DIR=%LOCALAPPDATA%\%APP_NAME%"
 set "CONFIG_DIR=%APPDATA%\%APP_NAME%"
-set "REPO_URL=https://github.com/YourUsername/SyntaxRipper.git" 
+set "REPO_URL=https://github.com/Syntaxerrorontop/SyntaxRipper"
 :: NOTE: Replace REPO_URL above with your actual Git URL before distributing!
 
 echo ========================================================
