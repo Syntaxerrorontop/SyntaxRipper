@@ -850,19 +850,33 @@ class AsyncDownloadManager:
                     ignore_providers.append(best_downloader_data.key)
                     continue
 
-                                        # 3. Start Download
+                                                        # 3. Start Download
 
-                                        self._emit("status", "Downloading...")
+                                                        self._emit("status", "Downloading...")
 
-                                        file_ending = context.file_extension
+                                                        file_ending = context.file_extension
 
-                                        worker_count = context.worker
+                                                        
 
-                                        delay = context.delay
+                                                        # Robust attribute access with multiple fallbacks
 
-                                        
+                                                        worker_count = 1
 
-                                        link_data = {                    "url": context.url,
+                                                        if hasattr(context, 'worker'): worker_count = context.worker
+
+                                                        elif hasattr(best_downloader_data, 'worker'): worker_count = best_downloader_data.worker
+
+                                                        
+
+                                                        delay = 0.5
+
+                                                        if hasattr(context, 'delay'): delay = context.delay
+
+                                                        elif hasattr(best_downloader_data, 'delay'): delay = best_downloader_data.delay
+
+                                                        
+
+                                                        link_data = {                    "url": context.url,
                     "headers": context.headers,
                     "payload": context.payload,
                     "method": context.method,
