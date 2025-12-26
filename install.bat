@@ -73,7 +73,8 @@ echo [3/5] Installing Application Files...
 if exist "%INSTALL_DIR%\.git" (
     echo    -> Updating existing installation...
     cd /d "%INSTALL_DIR%"
-    git pull
+    git fetch origin
+    git reset --hard origin/main
 ) else (
     echo    -> Cloning repository...
     if exist "%INSTALL_DIR%" rmdir /s /q "%INSTALL_DIR%"
