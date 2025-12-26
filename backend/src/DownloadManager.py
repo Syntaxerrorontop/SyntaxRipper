@@ -10,6 +10,7 @@ import threading
 import subprocess
 import shutil
 import urllib.parse
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from bs4 import BeautifulSoup
 from selenium import webdriver
