@@ -1042,13 +1042,30 @@ class AsyncDownloadManager:
         # Combine
         self.is_processing = True
         self._emit("status", "Merging...")
+        
+        merged_bytes = 0
+        chunk_size = 1024 * 1024 * 5 # 5MB Buffer for performance
+        
         with open(cache_path, 'wb') as outfile:
             for i in range(worker_count):
+                if self.should_stop: return
+                
                 part_file = self.parts.get(i)
-                if part_file:
+                if part_file and os.path.exists(part_file):
                     with open(part_file, 'rb') as infile:
-                        shutil.copyfileobj(infile, outfile)
-                    os.remove(part_file)
+                        while True:
+                            chunk = infile.read(chunk_size)
+                            if not chunk: break
+                            outfile.write(chunk)
+                            merged_bytes += len(chunk)
+                            
+                            # Update merging progress
+                            if total_size > 0:
+                                pct = int((merged_bytes / total_size) * 100)
+                                self._emit("progress", pct)
+                    
+                    try: os.remove(part_file)
+                    except: pass
 
         self._finalize_download(cache_path, file_ending)
 
@@ -1163,16 +1180,33 @@ class AsyncDownloadManager:
                     universal_newlines=True
                 )
 
+                start_time = time.time()
                 while process.poll() is None:
                     if self.should_stop:
                         process.kill()
                         return
+                    
                     line = process.stdout.readline()
                     if not line: continue
+                    
                     match = re.search(r'(\d+)%', line)
                     if match:
                         percent = int(match.group(1))
                         self._emit("progress", percent)
+                        
+                        # Calculate Unpack ETA
+                        if percent > 0:
+                            elapsed = time.time() - start_time
+                            total_est = elapsed / (percent / 100)
+                            remaining = total_est - elapsed
+                            
+                            # Format as readable time
+                            h, rem = divmod(int(remaining), 3600)
+                            m, s = divmod(rem, 60)
+                            eta_str = f"{h:02}:{m:02}:{s:02}"
+                            
+                            # Update status with ETA
+                            self._emit("status", f"Unpacking... (ETA: {eta_str})")
                 
                 if process.returncode != 0:
                     self._emit("error", f"Unpack failed with code {process.returncode}")
