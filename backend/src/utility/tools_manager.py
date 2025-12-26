@@ -8,6 +8,13 @@ import logging
 from .utility_vars import APPDATA_CACHE_PATH
 
 TOOLS_CONFIG = {
+    "aria2": {
+        "name": "Aria2 (Downloader)",
+        "url": "https://github.com/aria2/aria2/releases/download/release-1.37.0/aria2-1.37.0-win-64bit-build1.zip",
+        "check_file": "aria2c.exe",
+        "subfolder": "aria2",
+        "is_zip": True
+    },
     "ffmpeg": {
         "name": "FFmpeg",
         "url": "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip",
@@ -67,7 +74,14 @@ class ToolsManager:
         return status
 
     def _get_tool_path(self, key):
-        if key == "ffmpeg":
+        if key == "aria2":
+            base = os.path.join(self.tools_dir, "aria2")
+            if os.path.exists(base):
+                for root, dirs, files in os.walk(base):
+                    if "aria2c.exe" in files:
+                        return os.path.join(root, "aria2c.exe")
+            return None
+        elif key == "ffmpeg":
             # FFmpeg extracts to a folder like 'ffmpeg-6.0-essentials_build', we need to find it
             base = os.path.join(self.tools_dir, "ffmpeg")
             if os.path.exists(base):
@@ -153,10 +167,10 @@ class ToolsManager:
                         shutil.move(os.path.join(found_path, item), target_dir)
                     # Clean up empty folders? Optional, but safer to leave or delete specifically if known
             
-            # Post-processing special cases
-            if key == "ffmpeg":
+            # Post-processing
+            if key in ["ffmpeg", "aria2"]:
                 # Rename temp folder to final
-                final_dir = os.path.join(self.tools_dir, "ffmpeg")
+                final_dir = os.path.join(self.tools_dir, key)
                 if os.path.exists(final_dir): shutil.rmtree(final_dir)
                 os.rename(target_dir, final_dir)
             

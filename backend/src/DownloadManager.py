@@ -28,6 +28,15 @@ from .utility.utility_classes import Payload, Header, UserConfig, File
 from .utility.utility_vars import CONFIG_FOLDER, CACHE_FOLDER, APPDATA_CACHE_PATH
 from .utility.config_updater import update_game_configs
 from .utility.debrid import DebridManager
+from .utility.tools_manager import ToolsManager
+
+# Add LIBB to path
+import sys
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), "LIBB"))
+try:
+    from downloader import Downloader as LIBBDownloader, DownloadUtils as LIBBUtils
+except ImportError:
+    logging.error("Failed to import LIBB from backend/LIBB")
 
 # Global lock for thread safety
 queue_lock = threading.Lock()
@@ -796,80 +805,50 @@ class AsyncDownloadManager:
         if not os.path.exists(self.userconfig.DOWNLOAD_CACHE_PATH):
             os.makedirs(self.userconfig.DOWNLOAD_CACHE_PATH)
 
-        # 1. Determine Provider
-        direct_provider = None
-        for key, data in downloader_data["provider"].items():
-            if re.search(data["identifier"], url):
-                direct_provider = key
-                break
-        
-        best_downloader = None
-        best_key = None
-        links = {}
-        
-        if not direct_provider:
-            # SteamRIP logic
-            if "steamrip.com" in url.lower():
-                self._emit("status", "Scraping SteamRIP page...")
-                links, name = Downloader.steamrip(url, downloader_data, self.scraper)
-                if not alias:
-                    alias = name
-                self.current_download_info["alias"] = alias # Store resolved name
-                best_downloader, best_key = _get_best_downloader(links)
-            elif "filmpalast.to" in url.lower():
-                self._emit("status", "Scraping Filmpalast page...")
-                links, name = Downloader.filmpalast(url, downloader_data, self.scraper)
-                if not alias:
-                    alias = name
-                self.current_download_info["alias"] = alias # Store resolved name
-                best_downloader, best_key = _get_best_downloader(links)
-            else:
-                self._emit("error", "URL not supported or no direct provider found.")
-                return
-        else:
-            best_downloader = downloader_data["provider"][direct_provider]
-            best_key = direct_provider
-            links = {direct_provider: url} # Fake links dict for uniformity
-
-        if not best_downloader:
-            self._emit("error", "No valid download provider found.")
-            return
-
-        # 2. Get Direct Link (Retry Loop)
-        direct_link_data = None
-        while True:
-            if self.should_stop: return
-            
-            self._emit("status", f"Resolving link with {best_key}...")
-            func = best_downloader["downloader"]
-            target_url = links[best_key]
-            
-            result = func(target_url)
-            
-            if isinstance(result, dict) and "url" in result:
-                direct_link_data = result
-                break
-            
-            logging.warning(f"Provider {best_key} failed. Trying next...")
-            del links[best_key]
-            best_downloader, best_key = _get_best_downloader(links)
-            
-            if not best_downloader:
-                self._emit("error", "All providers failed.")
-                return
-
-        # 3. Start Download
-        self._emit("status", "Downloading...")
-        file_ending = best_downloader["file_ending"]
-        worker_count = best_downloader.get("worker", 1)
-        
+        # 1. Use LIBB to determine Provider and resolve link
         try:
-            self._execute_download(direct_link_data, worker_count, file_ending)
-        except Exception as e:
-            logging.error(f"Download Error: {e}")
-            self._emit("error", str(e))
+            best_downloader_data = LIBBDownloader.get_downloader(url)
+            if not best_downloader_data or not best_downloader_data.enabled:
+                self._emit("error", "URL not supported or provider disabled.")
+                return
+            
+            # Resolve Direct Link
+            self._emit("status", f"Resolving link with {url.split('/')[2]}...")
+            
+            # LIBB Extract returns DownloadableContext
+            context = best_downloader_data.extract(url)
+            
+            if not context or not context.url:
+                self._emit("error", "Failed to extract direct download link.")
+                return
 
-    def _execute_download(self, link_data, worker_count, file_ending):
+            # Update alias if it was a SteamRIP page
+            if not alias:
+                alias = get_name_from_url(url)
+            self.current_download_info["alias"] = alias
+
+            # 3. Start Download using context data
+            self._emit("status", "Downloading...")
+            file_ending = context.file_extension
+            worker_count = context.worker # Use worker from context
+            delay = context.delay # Use delay from context
+            
+            # Convert context to the expected link_data dict format for _execute_download
+            link_data = {
+                "url": context.url,
+                "headers": context.headers,
+                "payload": context.payload,
+                "method": context.method,
+                "session": context.session
+            }
+            
+            self._execute_download(link_data, worker_count, file_ending, delay)
+
+        except Exception as e:
+            logging.error(f"LIBB Downloader Error: {e}")
+            self._emit("error", f"Link resolution failed: {e}")
+
+    def _execute_download(self, link_data, worker_count, file_ending, delay=0.5):
         url = link_data["url"]
         headers = link_data.get("headers", {})
         payload = link_data.get("payload", {})
@@ -882,12 +861,68 @@ class AsyncDownloadManager:
             if new_url:
                 logging.info(f"Using Real-Debrid link for {url}")
                 url = new_url
-                # Debrid links are direct, usually single connection is fine but they support multi
-                # We keep headers/session as is unless they conflict, but usually Debrid needs none
                 headers = {} 
                 session = None
 
-        # Get Size
+        # Check for Aria2
+        tools_mgr = ToolsManager()
+        aria2_path = tools_mgr._get_tool_path("aria2")
+        
+        # Use Aria2 if available AND no custom session/payload required (simple GET)
+        if aria2_path and not session and not payload:
+            self._emit("status", "Downloading with Aria2...")
+            self.current_download_info["total_size"] = 0 # Aria2 handles this
+            display_name = self.current_download_info.get("alias") or f"{self.current_download_info['hash']}.{file_ending}"
+            self._emit("meta", {"total_size": 0, "filename": display_name}) # Size unknown initially
+            
+            cache_path = os.path.join(self.userconfig.DOWNLOAD_CACHE_PATH, f"{self.current_download_info['hash']}.{file_ending}")
+            
+            cmd = [
+                aria2_path,
+                url,
+                "-d", self.userconfig.DOWNLOAD_CACHE_PATH,
+                "-o", f"{self.current_download_info['hash']}.{file_ending}",
+                "-x", str(max(worker_count, 4)), # Min 4 connections
+                "-s", str(max(worker_count, 4)),
+                "--file-allocation=none",
+                "--summary-interval=1"
+            ]
+            
+            # Speed Limit
+            if self.userconfig.DOWNLOAD_SPEED_ENABLED and self.userconfig.DOWNLOAD_SPEED > 0:
+                cmd.append(f"--max-download-limit={self.userconfig.DOWNLOAD_SPEED}K")
+            
+            try:
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    universal_newlines=True
+                )
+                
+                while process.poll() is None:
+                    if self.should_stop:
+                        process.terminate()
+                        return
+                    
+                    line = process.stdout.readline()
+                    if "CN:" in line: # Aria2 progress line
+                        # [ ... 10% ... ]
+                        match = re.search(r'\((\d+)%\)', line)
+                        if match:
+                            self._emit("progress", int(match.group(1)))
+                
+                if process.returncode == 0:
+                    self._emit("progress", 100)
+                    self._finalize_download(cache_path, file_ending)
+                    return
+                else:
+                    logging.warning("Aria2 failed, falling back to internal downloader.")
+            except Exception as e:
+                logging.error(f"Aria2 error: {e}")
+
+        # Get Size (Fallback / Standard)
         if session:
             resp = session.get(url, headers=headers, stream=True)
         else:
@@ -931,6 +966,10 @@ class AsyncDownloadManager:
         with ThreadPoolExecutor(max_workers=worker_count) as executor:
             futures = []
             for i, (start, end) in enumerate(ranges):
+                # Apply Delay before starting each thread
+                if i > 0 and delay > 0:
+                    time.sleep(delay)
+                    
                 futures.append(executor.submit(
                     self._download_part, i, start, end, url, headers, payload, session
                 ))
