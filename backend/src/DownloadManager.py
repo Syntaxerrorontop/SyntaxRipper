@@ -1170,6 +1170,14 @@ class AsyncDownloadManager:
                     shutil.rmtree(unpack_folder)
                 os.makedirs(unpack_folder)
 
+                # Get Total File Count for better progress
+                total_files = 1
+                try:
+                    list_proc = subprocess.run([unrar_tool, "lb", cache_path], capture_output=True, text=True)
+                    if list_proc.returncode == 0:
+                        total_files = len(list_proc.stdout.strip().split('\n'))
+                except: pass
+
                 # Execute UnRAR
                 process = subprocess.Popen(
                     [unrar_tool, "x", "-y", cache_path, unpack_folder],
@@ -1181,6 +1189,9 @@ class AsyncDownloadManager:
                 )
 
                 start_time = time.time()
+                files_processed = 0
+                last_line_was_extracting = False
+                
                 while process.poll() is None:
                     if self.should_stop:
                         process.kill()
@@ -1189,24 +1200,35 @@ class AsyncDownloadManager:
                     line = process.stdout.readline()
                     if not line: continue
                     
+                    # Detect new file start
+                    if "Extracting " in line:
+                        if not last_line_was_extracting:
+                            files_processed += 1
+                        last_line_was_extracting = True
+                    else:
+                        last_line_was_extracting = False
+
                     match = re.search(r'(\d+)%', line)
                     if match:
-                        percent = int(match.group(1))
-                        self._emit("progress", percent)
+                        file_percent = int(match.group(1))
+                        
+                        # Calculate global progress
+                        # (Files already done + progress of current file) / Total
+                        global_pct = int(((max(0, files_processed - 1) * 100) + file_percent) / total_files)
+                        if global_pct > 100: global_pct = 100
+                        
+                        self._emit("progress", global_pct)
                         
                         # Calculate Unpack ETA
-                        if percent > 0:
+                        if global_pct > 0:
                             elapsed = time.time() - start_time
-                            total_est = elapsed / (percent / 100)
+                            total_est = elapsed / (global_pct / 100)
                             remaining = total_est - elapsed
                             
-                            # Format as readable time
                             h, rem = divmod(int(remaining), 3600)
                             m, s = divmod(rem, 60)
                             eta_str = f"{h:02}:{m:02}:{s:02}"
-                            
-                            # Update status with ETA
-                            self._emit("status", f"Unpacking... (ETA: {eta_str})")
+                            self._emit("status", f"Unpacking... {global_pct}% (ETA: {eta_str})")
                 
                 if process.returncode != 0:
                     self._emit("error", f"Unpack failed with code {process.returncode}")
