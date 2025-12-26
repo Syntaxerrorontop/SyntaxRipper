@@ -8,7 +8,7 @@ let ws = null;
 let reconnectInterval = null;
 let libraryData = [];
 let selectedGameId = null;
-let currentSettings = { game_paths: [], download_path: "", download_cache_path: "", controller_mapping: {select: 0, back: 1} };
+let currentSettings = { game_paths: [], download_path: "", download_cache_path: "" };
 let currentGalleryImages = [];
 let currentGalleryIndex = 0;
 let runningGames = []; // List of running game IDs
@@ -1520,40 +1520,6 @@ async function uninstallGame(id, name) {
     const res = await fetch(`${API_URL}/api/library/uninstall`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id}) });
     if (res.ok) { await showAlert("Success", "Uninstalled."); refreshLibrary(); performSearch(); }
 }
-
-// --- Controller / Keyboard Support ---
-let gamepadIndex = null;
-let gpInterval = null;
-let lastMoveTime = 0;
-
-window.addEventListener("gamepadconnected", (e) => {
-    console.log("Gamepad connected:", e.gamepad.index);
-    gamepadIndex = e.gamepad.index;
-    if (!gpInterval) gpInterval = setInterval(pollGamepad, 100);
-});
-
-window.addEventListener("gamepaddisconnected", (e) => {
-    if (gamepadIndex === e.gamepad.index) {
-        gamepadIndex = null;
-        if (gpInterval) { clearInterval(gpInterval); gpInterval = null; }
-    }
-});
-
-// Keyboard
-document.addEventListener('keydown', (e) => {
-    if (!currentSettings.controller_support) return;
-    // Only handle if not typing in an input
-    if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
-
-    if (e.key === 'ArrowUp') handleNav('up');
-    else if (e.key === 'ArrowDown') handleNav('down');
-    else if (e.key === 'ArrowLeft') handleNav('left');
-    else if (e.key === 'ArrowRight') handleNav('right');
-    else if (e.key === 'Enter') {
-        e.preventDefault();
-        if (document.activeElement) document.activeElement.click();
-    }
-});
 
 // --- Controller / Keyboard Support ---
 let gamepadIndex = null;
