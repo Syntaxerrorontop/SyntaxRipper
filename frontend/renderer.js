@@ -187,10 +187,21 @@ function updateFooterStatus(status) {
     } else if (status === 'ready') {
         el.textContent = '🟢 Online';
         el.style.color = 'lightgreen';
+        fetchVersion();
     } else if (status === 'error') {
         el.textContent = '🔴 Offline';
         el.style.color = 'red';
     }
+}
+
+async function fetchVersion() {
+    try {
+        const res = await fetch(`${API_URL}/api/version`);
+        const data = await res.json();
+        // Assume footer has a span for version
+        const vEl = document.querySelector('#footer span:nth-child(2)'); 
+        if (vEl) vEl.textContent = `V${data.version}`;
+    } catch(e) {}
 }
 
 // --- Navigation ---

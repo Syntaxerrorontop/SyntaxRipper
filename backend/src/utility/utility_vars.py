@@ -18,3 +18,10 @@ if not os.path.exists(CACHE_FOLDER):
 ASSET_FOLDER = os.path.join(APPDATA_CACHE_PATH, "Assets")
 if not os.path.exists(ASSET_FOLDER):
     os.makedirs(ASSET_FOLDER)
+
+# Version
+try:
+    with open(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "version.txt"), "r") as f:
+        APP_VERSION = f.read().strip()
+except:
+    APP_VERSION = "3.0.0"

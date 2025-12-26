@@ -21,7 +21,7 @@ from src.scraper import UniversalScraper
 from src.DownloadManager import AsyncDownloadManager
 from src.Searcher import Searcher
 from src.utility.utility_functions import load_json, save_json, hash_url, get_name_from_url, _game_naming
-from src.utility.utility_vars import CONFIG_FOLDER, CACHE_FOLDER, APPDATA_CACHE_PATH
+from src.utility.utility_vars import CONFIG_FOLDER, CACHE_FOLDER, APPDATA_CACHE_PATH, APP_VERSION
 from src.utility.ExternalLibraryScanner import ExternalLibraryScanner
 from src.utility.utility_classes import UserConfig
 from src.utility.game_classes import Game
@@ -1086,6 +1086,10 @@ async def pause_download():
 async def resume_download():
     download_manager.resume()
     return {"status": "resumed"}
+
+@app.get("/api/version")
+async def get_version():
+    return {"version": APP_VERSION}
 
 @app.get("/api/settings")
 def get_settings():
