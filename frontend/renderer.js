@@ -493,6 +493,14 @@ async function refreshLibrary() {
         const data = await res.json();
         libraryData = data.library;
         renderTree();
+        
+        // Refresh details if a game is selected, to update buttons (e.g. after uninstall)
+        if (selectedGameId) {
+            // Validate if game still exists (might be removed)
+            const stillExists = libraryData.find(g => g.id === selectedGameId);
+            if (stillExists) showDetails(selectedGameId);
+            else closeDetails();
+        }
     } catch (e) { console.error("Lib load fail", e); }
 }
 
