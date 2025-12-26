@@ -113,22 +113,18 @@ class UserConfig:
             "exclude_message": True, 
             "resume_on_startup": True,
             "dry_launch": False,
-            "game_paths": [os.path.join(os.getcwd(), "Games")],
-            "download_path": os.path.join(os.getcwd(), "Downloads"),
-            "download_cache_path": os.path.join(os.getcwd(), "DownloadCache"),
-            "installed_games_path": os.path.join(os.getcwd(), "Games"),
+            "game_paths": [os.path.join(in_path, "..", "Games")],
+            "download_path": os.path.join(in_path, "..", "Downloads"),
+            "download_cache_path": os.path.join(in_path, "..", "DownloadCache"),
+            "installed_games_path": os.path.join(in_path, "..", "Games"),
+            "media_output_path": os.path.join(in_path, "..", "ConvertedMedia"),
             "default_username": "Guest",
             "rawg_api_key": "",
             "auto_update_games": False,
             "real_debrid_key": "",
             "controller_support": False,
             "controller_mapping": {"select": 0, "back": 1},
-            "collapsed_categories": [],
-            "media_output_path": os.path.join(os.getcwd(), "ConvertedMedia"),
-            "discord_rpc_enabled": True,
-            "gaming_mode_enabled": True,
-            "last_selected_game_id": None,
-            "show_hidden_games": False
+            "collapsed_categories": []
         }
         
         File.check_existence(in_path, filename, add_conten=default_data, use_json=True, quite=quite)
