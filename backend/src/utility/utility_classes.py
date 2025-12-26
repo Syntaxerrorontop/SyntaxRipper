@@ -127,7 +127,7 @@ class UserConfig:
             "real_debrid_key": "",
             "controller_support": False,
             "controller_mapping": {"select": 0, "back": 1},
-            "collapsed_categories": []
+            "collapsed_categories": [],
             "gaming_mode_enabled": True,
             "last_selected_game_id": None,
             "show_hidden_games": False,
