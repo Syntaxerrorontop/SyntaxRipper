@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Games Manager V3</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --sidebar-color: #1e1e1e;
+            --accent-color: #007acc;
+            --text-color: #e0e0e0;
+            --text-dim: #888;
+            --border-color: #333;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* --- Sidebar Navigation (Icons) --- */
+        #sidebar {
+            width: 60px;
+            background-color: var(--sidebar-color);
+            display: flex;
+            flex-direction: column;
+            padding-top: 20px;
+            border-right: 1px solid var(--border-color);
+            z-index: 100;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+
+        #sidebar:hover {
+            width: 200px;
+        }
+
+        .nav-item {
+            width: 100%;
+            padding: 15px 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            transition: background 0.2s;
+            position: relative;
+            white-space: nowrap;
+        }
+
+        .nav-item:hover { background-color: #2d2d30; }
+        .nav-item.active { background-color: #37373d; border-left: 3px solid var(--accent-color); }
+        
+        .nav-icon { 
+            width: 60px; /* Exact width of collapsed sidebar */
+            min-width: 60px;
+            text-align: center;
+            font-size: 24px; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .nav-text {
+            margin-left: 5px;
+            opacity: 0;
+            display: none;
+            transition: opacity 0.2s;
+            font-weight: 500;
+            color: #ccc;
+            pointer-events: none;
+        }
+
+        #sidebar:hover .nav-text {
+            display: inline;
+            opacity: 1;
+        }
+
+        .sidebar-logo-container {
+            width: 100%;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+
+        #sidebar img + #logo-placeholder { display: none; }
+        #sidebar img[style*="display: none"] + #logo-placeholder { display: flex; }
+
+        /* --- Main Layout --- */
+        #main-container { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        #content { flex: 1; padding: 0; overflow: hidden; display: flex; }
+        .view { flex: 1; display: none; flex-direction: column; animation: fadeIn 0.2s; }
+        .view.active { display: flex; }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* --- Tree View Layout (Library) --- */
+        #library-layout { display: flex; flex: 1; overflow: hidden; }
+        
+        /* Tree Sidebar */
+        #library-tree-container {
+            width: 300px;
+            background-color: #161616;
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        #tree-search {
+            padding: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        #tree-search input {
+            width: 100%;
+            padding: 8px;
+            background-color: #252526;
+            border: 1px solid #333;
+            color: white;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        #library-tree {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 0;
+        }
+
+        /* Nested Categories Indentation */
+        #library-tree details details {
+            margin-left: 15px;
+            border-left: 1px solid #2d2d30;
+        }
+
+        /* Tree Items */
+        details { display: block; }
+        summary {
+            cursor: pointer;
+            padding: 8px 15px;
+            list-style: none; /* Hide default triangle */
+            font-weight: 600;
+            color: #ddd;
+            display: flex;
+            align-items: center;
+            user-select: none;
+        }
+        
+        summary:hover { background-color: #2d2d30; }
+        summary::before {
+            content: '▶';
+            font-size: 10px;
+            margin-right: 8px;
+            transition: transform 0.2s;
+            color: var(--text-dim);
+        }
+        details[open] > summary::before { transform: rotate(90deg); }
+        
+        /* Sub-items (Games) */
+        .tree-item {
+            padding: 6px 15px 6px 38px;
+            cursor: pointer;
+            font-size: 14px;
+            color: var(--text-dim);
+            transition: color 0.2s, background 0.2s;
+            display: block;
+        }
+
+        .tree-item.installed { color: white; font-weight: 400; }
+        .tree-item:hover { color: white; background-color: #252526; }
+        .tree-item.selected { color: white; background-color: #37373d; border-left: 3px solid var(--accent-color); }
+        .tree-item.uninstalled { opacity: 0.6; font-style: italic; }
+
+        /* --- Details Panel --- */
+        #details-panel {
+            flex: 1;
+            background-color: var(--bg-color);
+            position: relative;
+            overflow-y: auto;
+            display: none; /* Hidden by default until selection */
+        }
+        
+        #details-panel.active { display: block; }
+
+        .close-btn, .settings-icon-btn {
+            position: absolute;
+            top: 20px;
+            background: rgba(0,0,0,0.5);
+            border: none;
+            color: white;
+            font-size: 24px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 10;
+            transition: background 0.2s, color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .close-btn { right: 20px; }
+        .settings-icon-btn { right: 70px; font-size: 20px; }
+        
+        .close-btn:hover { background: rgba(200, 50, 50, 0.8); }
+        .settings-icon-btn:hover { background: rgba(0, 122, 204, 0.8); color: white; }
+
+        .hero-image {
+            width: 100%;
+            height: 300px;
+            background-size: cover;
+            background-position: top;
+            mask-image: linear-gradient(to bottom, black 50%, transparent);
+            -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent);
+        }
+
+        .details-content { padding: 0 40px 40px 40px; margin-top: -60px; position: relative; }
+        .game-title-large { font-size: 48px; font-weight: bold; margin-bottom: 10px; text-shadow: 0 2px 10px rgba(0,0,0,0.8); }
+        .game-meta { font-size: 14px; color: #aaa; margin-bottom: 25px; }
+        
+        .actions { display: flex; gap: 15px; margin-bottom: 30px; }
+        .btn { padding: 10px 30px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 16px; }
+        .btn-primary { background-color: var(--accent-color); color: white; }
+        .btn-primary:hover { background-color: #0063a8; }
+        .btn-secondary { background-color: #333; color: white; }
+        .btn-secondary:hover { background-color: #444; }
+
+        .screenshots { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); 
+            gap: 20px; 
+            justify-content: center;
+        }
+        .screenshot { width: 100%; aspect-ratio: 16/9; background-color: #222; border-radius: 6px; background-size: cover; background-position: center; }
+
+        /* Slideshow Container */
+        .slideshow-container {
+            position: relative; 
+            width: 100%; 
+            /* Removed fixed max-width to allow full stretching */
+            margin: 0 auto 30px auto;
+            aspect-ratio: 16/9; 
+            background: #000; 
+            border-radius: 12px; 
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 1px solid #333;
+        }
+        .slide-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 10px 15px;
+            cursor: pointer;
+            font-size: 20px;
+            user-select: none;
+            transition: background 0.2s;
+            border-radius: 4px;
+        }
+        .slide-arrow:hover { background: rgba(0, 0, 0, 0.8); }
+
+        /* --- Other Views --- */
+        .simple-header { padding: 20px 40px; border-bottom: 1px solid var(--border-color); }
+        .simple-content { padding: 20px 40px; }
+        
+        /* --- Footer --- */
+        #footer {
+            height: 25px;
+            background-color: var(--accent-color);
+            color: white;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            justify-content: space-between;
+        }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #444; }
+
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .spin { display: inline-block; animation: spin 1s linear infinite; margin-right: 5px; }
+
+        /* Description Styling */
+        #detail-description p { margin-bottom: 15px; }
+        #detail-description h3, #detail-description h2 { color: white; margin-top: 20px; margin-bottom: 10px; font-size: 1.1em; }
+        #detail-description ul { padding-left: 20px; margin-bottom: 15px; }
+        #detail-description li { margin-bottom: 5px; }
+        #detail-description br { display: block; content: ""; margin-top: 10px; }
+
+        /* Specs Styling */
+        .spec-list { list-style: none; padding: 0; margin: 0; }
+        .spec-item { 
+            display: flex; 
+            justify-content: space-between; 
+            padding: 8px 0; 
+            border-bottom: 1px solid #333; 
+            font-size: 13px;
+        }
+        .spec-item:last-child { border-bottom: none; }
+        .spec-label { color: #888; font-weight: 600; min-width: 80px; }
+        .spec-value { color: #ddd; text-align: right; margin-left: 10px; }
+
+        /* Settings Styles */
+        .settings-wrapper { 
+            flex: 1;
+            max-width: 900px; 
+            margin: 0 auto; 
+            padding: 20px;
+            overflow-y: auto;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .settings-card { 
+            background-color: #1e1e1e; 
+            border-radius: 12px; 
+            padding: 30px; 
+            margin-bottom: 25px; 
+            border: 1px solid #333; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .settings-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+            border-color: #444;
+        }
+        .settings-card h2 { 
+            margin-top: 0; 
+            margin-bottom: 25px; 
+            font-size: 20px; 
+            border-bottom: 1px solid #333; 
+            padding-bottom: 15px; 
+            color: white; 
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { 
+            display: block; 
+            margin-bottom: 10px; 
+            color: #ccc; 
+            font-size: 14px; 
+            font-weight: 600; 
+            letter-spacing: 0.5px;
+        }
+        .input-row { display: flex; gap: 15px; }
+        .input-row input { 
+            flex: 1; 
+            padding: 12px 15px; 
+            background-color: #161616; 
+            border: 1px solid #333; 
+            color: white; 
+            border-radius: 6px; 
+            font-family: inherit; 
+            font-size: 14px;
+            transition: border-color 0.2s, background-color 0.2s;
+        }
+        .input-row input:focus { 
+            border-color: var(--accent-color); 
+            background-color: #1a1a1a; 
+            outline: none; 
+        }
+        .hint { 
+            font-size: 13px; 
+            color: #777; 
+            margin-top: 8px; 
+            margin-bottom: 0; 
+            line-height: 1.4;
+        }
+        
+        .path-list { 
+            list-style: none; 
+            padding: 0; 
+            background: #161616; 
+            border-radius: 6px; 
+            border: 1px solid #333; 
+            margin-bottom: 15px; 
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .path-list li { 
+            padding: 12px 15px; 
+            border-bottom: 1px solid #333; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            color: #ddd; 
+            font-size: 14px; 
+        }
+        .path-list li:last-child { border-bottom: none; }
+        
+        /* Button Upgrades */
+        .btn {
+            padding: 10px 20px;
+            font-size: 14px;
+            border-radius: 6px;
+            letter-spacing: 0.5px;
+            transition: background 0.2s, transform 0.1s;
+        }
+        .btn:active { transform: scale(0.98); }
+        
+        .btn-danger { 
+            background-color: #2c1e1e; 
+            color: #ff6b6b; 
+            border: 1px solid #5a2a2a;
+        }
+        .btn-danger:hover { 
+            background-color: #3e1e1e; 
+            border-color: #ff6b6b; 
+        }
+
+        /* Toggle Switch */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 26px;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #333;
+            transition: .4s;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px; width: 18px;
+            left: 4px; bottom: 4px;
+            background-color: white;
+            transition: .4s;
+        }
+        input:checked + .slider { background-color: var(--accent-color); }
+        input:checked + .slider:before { transform: translateX(24px); }
+        .slider.round { border-radius: 34px; }
+        .slider.round:before { border-radius: 50%; }
+
+        /* Focus Indicators for Controller Navigation */
+        :focus {
+            outline: 2px solid var(--accent-color) !important;
+            outline-offset: 2px !important;
+        }
+        
+        .btn:focus, .nav-item:focus, .tree-item:focus, summary:focus {
+            outline: 2px solid #fff !important;
+            outline-offset: 2px !important;
+            box-shadow: 0 0 10px rgba(0, 122, 204, 0.5);
+        }
+
+        /* Remove default outline for mouse users if desired, but keep for keyboard/controller */
+        :focus:not(:focus-visible) {
+            outline: none !important;
+        }
+        
+    </style>
+</head>
+<body>
+
+    <nav id="sidebar">
+        <div class="sidebar-logo-container">
+            <img src="assets/logo.png" onerror="this.style.display='none'" style="width: 40px; height: 40px; border-radius: 8px;">
+            <div id="sidebar-username" class="nav-text" style="margin-left: 10px; font-weight: bold; color: white;">Guest</div>
+        </div>
+        <div class="nav-item active" onclick="switchTab('library')" title="Library">
+            <span class="nav-icon">📚</span>
+            <span class="nav-text">Library <span id="badge-library" style="background: var(--accent-color); color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px; margin-left: 5px; display: none;"></span></span>
+        </div>
+        <div class="nav-item" onclick="switchTab('search')" title="Store">
+            <span class="nav-icon">🔍</span>
+            <span class="nav-text">Store</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('downloads')" title="Downloads">
+            <span class="nav-icon">⬇️</span>
+            <span class="nav-text">Downloads <span id="badge-downloads" style="background: var(--accent-color); color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px; margin-left: 5px; display: none;"></span></span>
+        </div>
+        <div class="nav-item" onclick="switchTab('scripts')" title="Scripts">
+            <span class="nav-icon">📜</span>
+            <span class="nav-text">Scripts</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('settings')" title="Settings">
+            <span class="nav-icon">⚙️</span>
+            <span class="nav-text">Settings</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('profile')" title="Profile">
+            <span class="nav-icon">👤</span>
+            <span class="nav-text">Profile</span>
+        </div>
+        <div class="nav-item" onclick="selectRandomGame()" title="Random Game" style="margin-top: auto; margin-bottom: 20px;">
+            <span class="nav-icon">🎲</span>
+            <span class="nav-text">Random</span>
+        </div>
+    </nav>
+
+    <div id="main-container">
+        <div id="content">
+            <!-- Library View (Tree) -->
+            <div id="view-library" class="view active">
+                <div id="library-layout">
+                    <!-- Tree Sidebar -->
+                    <div id="library-tree-container">
+                        <div id="tree-search" style="display: flex; gap: 5px;">
+                            <input type="text" id="librarySearch" placeholder="Filter..." onkeyup="filterTree()" style="flex: 1;">
+                            <select id="librarySort" onchange="filterTree()" style="width: 80px; background: #252526; color: white; border: 1px solid #333; border-radius: 4px;">
+                                <option value="name">A-Z</option>
+                                <option value="time">Time</option>
+                                <option value="added">New</option>
+                            </select>
+                        </div>
+                        <div id="library-tree">
+                            <!-- JS generates this -->
+                        </div>
+                    </div>
+                    
+                    <!-- Main / Details -->
+                    <div id="details-panel">
+                        <button class="settings-icon-btn" id="detail-settings-btn" title="Game Settings">⚙️</button>
+                        <button class="close-btn" onclick="closeDetails()">×</button>
+                        <div class="hero-image" id="detail-hero"></div>
+                        <div class="details-content">
+                            <div class="game-title-large" id="detail-title">Select a Game</div>
+                            <div class="game-meta" id="detail-meta">Version • Playtime</div>
+                            
+                            <div id="detail-hltb" style="display: flex; gap: 20px; margin-bottom: 20px; color: #aaa; font-size: 13px;">
+                                <!-- Populated via JS -->
+                            </div>
+                            
+                            <div class="actions" id="detail-actions">
+                                <!-- Dynamic buttons -->
+                            </div>
+
+                            <!-- New Metadata Layout -->
+                            <div class="detail-grid" style="display: flex; gap: 40px; margin-bottom: 40px;">
+                                <!-- Description Column -->
+                                <div style="flex: 3;">
+                                    <h3 style="margin-top: 0; color: #fff; border-bottom: 1px solid #333; padding-bottom: 10px;">About</h3>
+                                    <div id="detail-description" style="color: #ccc; line-height: 1.6; font-size: 15px; max-height: 500px; overflow-y: auto; padding-right: 15px;"></div>
+                                    
+                                    <div id="detail-requirements" style="margin-top: 20px; display: none;">
+                                        <h4 style="color: #fff; margin-bottom: 10px;">System Requirements (PC)</h4>
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                            <div id="req-min" style="background: #252526; padding: 15px; border-radius: 6px; font-size: 13px; color: #aaa;"></div>
+                                            <div id="req-rec" style="background: #252526; padding: 15px; border-radius: 6px; font-size: 13px; color: #aaa;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Info Side Column -->
+                                <div style="flex: 1; min-width: 250px;">
+                                    <div class="info-box" style="background: #202020; padding: 20px; border-radius: 8px; border: 1px solid #333;">
+                                        
+                                        <div style="margin-bottom: 20px;">
+                                            <div style="font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">Rating</div>
+                                            <div id="detail-rating" style="font-size: 24px; font-weight: bold; color: var(--accent-color);"></div>
+                                        </div>
+
+                                        <div style="margin-bottom: 20px;">
+                                            <div style="font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">Genres</div>
+                                            <div id="detail-genres" style="display: flex; flex-wrap: wrap; gap: 5px;"></div>
+                                        </div>
+
+                                        <div style="margin-bottom: 20px;">
+                                            <div style="font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">Developers</div>
+                                            <div id="detail-devs" style="color: #ddd; font-size: 14px;"></div>
+                                        </div>
+
+                                        <div style="margin-bottom: 20px;">
+                                            <div style="font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">Publishers</div>
+                                            <div id="detail-pubs" style="color: #ddd; font-size: 14px;"></div>
+                                        </div>
+
+                                        <div>
+                                            <div style="font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">Tags</div>
+                                            <div id="detail-tags" style="display: flex; flex-wrap: wrap; gap: 5px;"></div>
+                                        </div>
+
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <h3 style="border-bottom: 1px solid #333; padding-bottom: 10px;">Screenshots</h3>
+                            <div class="screenshots" id="detail-gallery"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Empty State / Welcome -->
+                    <div id="empty-state" style="flex: 1; display: flex; align-items: center; justify-content: center; color: #444;">
+                        <h2>Select a game from the list</h2>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search View -->
+            <div id="view-search" class="view">
+                <div class="simple-header"><h1>Store</h1></div>
+                <div class="simple-content" id="search-content">
+                    <div style="display: flex; align-items: center; gap: 10px; position: relative; z-index: 20;">
+                        <select id="searchCategory" style="padding: 10px; background: #222; color: white; border: 1px solid #333; border-radius: 4px; cursor: pointer;">
+                            <option value="Games">Games</option>
+                            <option value="Movies">Movies</option>
+                            <option value="Series">Series</option>
+                            <option value="Animes">Animes</option>
+                        </select>
+                        <input type="text" id="searchInput" placeholder="Search..." style="flex: 1; padding: 10px; border-radius: 4px; border: 1px solid #333; background: #222; color: white;" onkeyup="if(event.key==='Enter') performSearch()">
+                        <button class="btn btn-primary" onclick="performSearch()">Search</button>
+                    </div>
+                    <div id="searchResults" style="margin-top: 20px; display: grid; gap: 10px;"></div>
+                </div>
+
+                <!-- Search Preview Overlay -->
+                <div id="search-preview-panel" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-color); z-index: 30; overflow-y: auto;">
+                    <button class="close-btn" onclick="closeSearchPreview()">×</button>
+                    <div class="hero-image" id="preview-hero"></div>
+                    <div class="details-content">
+                        <div class="game-title-large" id="preview-title">Title</div>
+                        <div class="game-meta" id="preview-meta">...</div>
+                        
+                        <div class="actions" id="preview-actions"></div>
+
+                        <div class="detail-grid" style="display: flex; gap: 40px; margin-bottom: 40px;">
+                            <div style="flex: 3;">
+                                <h3 style="margin-top: 0; color: #fff; border-bottom: 1px solid #333; padding-bottom: 10px;">About</h3>
+                                <div id="preview-description" style="color: #ccc; line-height: 1.6; font-size: 15px; max-height: 500px; overflow-y: auto; padding-right: 15px;"></div>
+                                <div id="preview-requirements" style="margin-top: 20px; display: none;">
+                                    <h4 style="color: #fff; margin-bottom: 10px;">System Requirements (PC)</h4>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                        <div id="preview-req-min" style="background: #252526; padding: 15px; border-radius: 6px; font-size: 13px; color: #aaa;"></div>
+                                        <div id="preview-req-rec" style="background: #252526; padding: 15px; border-radius: 6px; font-size: 13px; color: #aaa;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="flex: 1; min-width: 250px;">
+                                <div class="info-box" style="background: #202020; padding: 20px; border-radius: 8px; border: 1px solid #333;">
+                                    <div style="margin-bottom: 20px;">
+                                        <div style="font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">Rating</div>
+                                        <div id="preview-rating" style="font-size: 24px; font-weight: bold; color: var(--accent-color);"></div>
+                                    </div>
+                                    <div style="margin-bottom: 20px;">
+                                        <div style="font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">Genres</div>
+                                        <div id="preview-genres" style="display: flex; flex-wrap: wrap; gap: 5px;"></div>
+                                    </div>
+                                    <div style="margin-bottom: 20px;">
+                                        <div style="font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">Developers</div>
+                                        <div id="preview-devs" style="color: #ddd; font-size: 14px;"></div>
+                                    </div>
+                                    <div style="margin-bottom: 20px;">
+                                        <div style="font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">Publishers</div>
+                                        <div id="preview-pubs" style="color: #ddd; font-size: 14px;"></div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">Tags</div>
+                                        <div id="preview-tags" style="display: flex; flex-wrap: wrap; gap: 5px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <h3 style="border-bottom: 1px solid #333; padding-bottom: 10px;">Screenshots</h3>
+                        <div class="screenshots" id="preview-gallery"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Downloads View -->
+            <div id="view-downloads" class="view">
+                <div class="simple-header"><h1>Downloads</h1></div>
+                <div class="simple-content">
+                    <div id="activeDownload" 
+                         ondragover="event.preventDefault()" 
+                         ondrop="handleDropToActive(event)">
+                        <div class="download-item" style="background: #252526; padding: 20px; border-radius: 8px; border: 1px solid #333;">
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 5px;">
+                                <span id="active-drag-handle" 
+                                      draggable="true" 
+                                      ondragstart="handleDragActiveStart(event)"
+                                      style="color: #666; cursor: grab; font-size: 20px;">☰</span>
+                                <div id="dl-title" class="download-title" style="font-weight: bold; font-size: 16px;">No active download</div>
+                            </div>
+                            <div id="dl-status-text" style="font-size: 12px; color: #888; margin-bottom: 10px; margin-left: 32px;">Idle</div>
+                            
+                            <div class="progress-bar" style="background: #161616; height: 12px; border-radius: 6px; overflow: hidden; margin-bottom: 10px; border: 1px solid #333;">
+                                <div id="dl-progress-fill" style="background: var(--accent-color); height: 100%; width: 0%; transition: width 0.3s ease-out;"></div>
+                            </div>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px; color: #aaa;">
+                                <div id="dl-size-info">0 Bytes / 0 Bytes</div>
+                                <div id="dl-status" style="text-align: right; font-weight: bold; color: white;">0%</div>
+                                
+                                <div id="dl-speed">0 Bytes/s</div>
+                                <div id="dl-remaining" style="text-align: right;">Remaining: --:--:--</div>
+                            </div>
+
+                            <div style="margin-top: 20px; display: flex; gap: 10px;">
+                                <button id="pause-btn" onclick="togglePause()" class="btn btn-secondary" style="padding: 5px 15px;" disabled>PAUSE</button>
+                                <button id="cancel-btn" onclick="stopDownload()" class="btn btn-danger" style="padding: 5px 15px;" disabled>CANCEL</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="downloadLogs" style="display: none;"></div>
+                </div>
+            </div>
+
+            <!-- Scripts View -->
+            <div id="view-scripts" class="view">
+                <div class="simple-header"><h1>Scripts</h1></div>
+                <div class="simple-content" style="display: flex; height: 100%;">
+                    <!-- Script List -->
+                    <div style="width: 250px; background: #161616; border-right: 1px solid #333; padding: 10px;">
+                        <div class="script-item active" onclick="selectScript('universal-downloader')" style="padding: 10px; cursor: pointer; background: #252526; border-radius: 4px; margin-bottom: 5px;">
+                            Universal Downloader
+                        </div>
+                        <div class="script-item" onclick="selectScript('media-converter')" style="padding: 10px; cursor: pointer; background: #252526; border-radius: 4px; margin-bottom: 5px;">
+                            Audio Converter
+                        </div>
+                        <div class="script-item" style="padding: 10px; cursor: not-allowed; opacity: 0.5; color: #666;">
+                            (More coming soon...)
+                        </div>
+                    </div>
+                    <!-- Script Content -->
+                    <div style="flex: 1; padding: 20px; overflow-y: auto;">
+                        <div id="script-universal-downloader" class="script-panel">
+                            <h2>Universal Downloader</h2>
+                            <p style="color: #aaa; margin-bottom: 20px;">
+                                Download from supported providers (SteamRIP, Gofile, 1Fichier, etc.) using the internal Download Manager logic.
+                            </p>
+                            <div class="form-group">
+                                <label>Target URL</label>
+                                <div class="input-row">
+                                    <input type="text" id="script-url-input" placeholder="https://steamrip.com/game-name...">
+                                    <button class="btn btn-primary" onclick="runUniversalDownloader()">Run Script</button>
+                                </div>
+                                <p class="hint">The download will be added to the Downloads queue.</p>
+                            </div>
+                        </div>
+
+                        <div id="script-media-converter" class="script-panel" style="display: none;">
+                            <h2>Audio Converter</h2>
+                            <p style="color: #aaa; margin-bottom: 20px;">
+                                Convert audio, video, or images using FFmpeg.
+                            </p>
+                            <div class="form-group" 
+                                 ondragover="event.preventDefault(); this.style.borderColor='var(--accent-color)'" 
+                                 ondragleave="this.style.borderColor='#333'" 
+                                 ondrop="handleConverterDrop(event)"
+                                 style="border: 2px dashed #333; padding: 20px; border-radius: 8px; text-align: center; transition: border-color 0.2s;">
+                                <label>Input File (Drag & Drop here)</label>
+                                <div class="input-row">
+                                    <input type="text" id="convert-input-path" placeholder="C:\Path\To\File.wav">
+                                    <button class="btn btn-secondary" onclick="selectFileForConvert()">Browse</button>
+                                </div>
+                            </div>
+                            <div class="form-group" id="convert-output-group" style="display: none; margin-top: 20px; animation: fadeIn 0.3s;">
+                                <label>Output Format</label>
+                                <select id="convert-format" style="width: 100%; padding: 10px; background: #161616; color: white; border: 1px solid #333; border-radius: 6px;">
+                                    <!-- Options populated dynamically -->
+                                </select>
+                                <button class="btn btn-primary" onclick="runMediaConvert()" style="width: 100%; margin-top: 15px;">Convert Now</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Profile View -->
+            <div id="view-profile" class="view">
+                <div class="simple-header"><h1>Profile</h1></div>
+                <div class="simple-content">
+                    <div style="display: flex; gap: 20px; margin-bottom: 30px;">
+                        <div class="info-box" style="flex: 1; background: #1e1e1e; padding: 20px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 36px; color: var(--accent-color);" id="profile-playtime">0h</div>
+                            <div style="color: #888;">Total Playtime</div>
+                        </div>
+                        <div class="info-box" style="flex: 1; background: #1e1e1e; padding: 20px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 36px; color: var(--accent-color);" id="profile-count">0</div>
+                            <div style="color: #888;">Games in Library</div>
+                        </div>
+                    </div>
+                    
+                    <h3>Favorite Genres</h3>
+                    <div id="profile-genres" style="margin-top: 15px; display: flex; flex-wrap: wrap; gap: 10px;">
+                        <!-- Badges -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings View -->
+            <div id="view-settings" class="view">
+                <div class="simple-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <h1>Settings</h1>
+                    <button class="btn btn-primary" onclick="saveSettings()" style="font-size: 16px; padding: 10px 25px;">💾 Save All Settings</button>
+                </div>
+                <div class="simple-content settings-wrapper">
+                    
+                    <!-- User Profile -->
+                    <div class="settings-card">
+                        <h2>👤 User Profile</h2>
+                        <div class="form-group">
+                            <label>Username</label>
+                            <div class="input-row">
+                                <input type="text" id="usernameInput" placeholder="Enter your username">
+                            </div>
+                            <p class="hint">Displayed in the sidebar and used for personalization.</p>
+                        </div>
+                        <div class="form-group">
+                            <label>Language</label>
+                            <div class="input-row">
+                                <input type="text" id="languageInput" placeholder="e.g. english, german, russian">
+                            </div>
+                            <p class="hint">Applied to supported game configuration files.</p>
+                        </div>
+                    </div>
+
+                    <!-- Integrations -->
+                    <div class="settings-card">
+                        <h2>🔌 Integrations</h2>
+                        <div class="form-group">
+                            <label>RAWG API Key</label>
+                            <div class="input-row">
+                                <input type="password" id="rawgKeyInput" placeholder="Enter your RAWG API Key">
+                                <button class="btn btn-secondary" onclick="togglePasswordVisibility('rawgKeyInput')" style="padding: 0 15px;">👁️</button>
+                            </div>
+                            <p class="hint">
+                                Required for fetching game covers, screenshots, and metadata. 
+                                <a href="https://rawg.io/apidocs" target="_blank" style="color: var(--accent-color); text-decoration: none;">Get a free key here</a>.
+                            </p>
+                        </div>
+                        <div class="form-group">
+                            <label>Real-Debrid API Key</label>
+                            <div class="input-row">
+                                <input type="password" id="debridKeyInput" placeholder="Enter your Real-Debrid API Key">
+                                <button class="btn btn-secondary" onclick="togglePasswordVisibility('debridKeyInput')" style="padding: 0 15px;">👁️</button>
+                            </div>
+                            <p class="hint">Unlocks premium download speeds for supported hosts.</p>
+                        </div>
+                    </div>
+
+                    <!-- Tools Management -->
+                    <div class="settings-card">
+                        <h2>🛠️ Tools & Dependencies</h2>
+                        <div id="tools-status-list" class="path-list">
+                            <!-- Populated by JS -->
+                        </div>
+                        <p class="hint">These tools are required for advanced features like media conversion and compression.</p>
+                    </div>
+
+                    <!-- Library Locations -->
+                    <div class="settings-card">
+                        <h2>📚 Game Library Locations</h2>
+                        <div class="form-group">
+                            <label>Managed Folders</label>
+                            <ul id="gamePathsList" class="path-list">
+                                <!-- Populated by JS -->
+                            </ul>
+                            <div style="display: flex; gap: 10px;">
+                                <button class="btn btn-secondary" onclick="addGamePath()">+ Add Folder</button>
+                                <button class="btn btn-primary" onclick="forceUpdateConfig()">Force Update Configurations</button>
+                            </div>
+                            <p class="hint">SyntaxRipper scans these folders for installed games. Force Update re-scans all executables.</p>
+                        </div>
+                    </div>
+
+                    <!-- Downloads -->
+                    <div class="settings-card">
+                        <h2>⬇️ Downloads</h2>
+                        <div class="form-group">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <label style="margin-bottom: 0;">Resume on Startup</label>
+                                <label class="switch">
+                                    <input type="checkbox" id="resumeStartupInput">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                            <p class="hint">Automatically resume pending downloads when the application starts.</p>
+                        </div>
+                        <div class="form-group">
+                            <label>Default Download Path</label>
+                            <div class="input-row">
+                                <input type="text" id="downloadPathInput" readonly>
+                                <button class="btn btn-secondary" onclick="changeDownloadPath()">Change</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Download Cache Path</label>
+                            <div class="input-row">
+                                <input type="text" id="downloadCachePathInput" readonly>
+                                <button class="btn btn-secondary" onclick="changeDownloadCachePath()">Change</button>
+                            </div>
+                            <p class="hint">Temporary location for active downloads and archives before unpacking.</p>
+                        </div>
+                        <div class="form-group">
+                            <label>Media Output Path</label>
+                            <div class="input-row">
+                                <input type="text" id="mediaOutputPathInput" readonly>
+                                <button class="btn btn-secondary" onclick="changeMediaOutputPath()">Change</button>
+                            </div>
+                            <p class="hint">Location for converted media files.</p>
+                        </div>
+                        <div class="form-group">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <label style="margin-bottom: 0;">Download Speed Limit (KB/s)</label>
+                                <label class="switch">
+                                    <input type="checkbox" id="speedLimitEnabledInput">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                            <div class="input-row">
+                                <input type="number" id="speedLimitInput" min="0" placeholder="e.g. 5000 for 5MB/s">
+                            </div>
+                            <p class="hint">Enable to restrict download bandwidth. Limit applies when the switch is ON.</p>
+                        </div>
+                        <div class="form-group">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <label style="margin-bottom: 0;">Enable Auto-updates Games</label>
+                                <label class="switch">
+                                    <input type="checkbox" id="autoUpdateInput">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                            <p class="hint">Automatically check for and download new versions of installed games (if supported).</p>
+                        </div>
+                    </div>
+
+                    <!-- Behavior -->
+                    <div class="settings-card">
+                        <h2>⚙️ Behavior</h2>
+                        <div class="form-group" style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <label style="margin-bottom: 0;" title="If enabled, games will launch without Save Detection (Procmon). Keeps only playtime tracking.">Dry Launch Mode ⓘ</label>
+                                <p class="hint" style="margin-top: 5px;">Skips background save path detection. Keeps only playtime tracking.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="dryLaunchInput">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                        <div class="form-group" style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <label style="margin-bottom: 0;">Verbose Logging</label>
+                                <p class="hint" style="margin-top: 5px;">Enable detailed logs for debugging purposes.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="verboseLoggingInput">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                        <div class="form-group" style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <label style="margin-bottom: 0;">Controller Support</label>
+                                <p class="hint" style="margin-top: 5px;">Enable navigation using a gamepad or arrow keys.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="controllerSupportInput">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                        <div class="form-group" style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <label style="margin-bottom: 0;">Show Hidden Games</label>
+                                <p class="hint" style="margin-top: 5px;">Reveal games that have been hidden from the library.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="showHiddenInput">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                        <div class="form-group" style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <label style="margin-bottom: 0;">Discord Rich Presence</label>
+                                <p class="hint" style="margin-top: 5px;">Show what you are playing on your Discord profile.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="discordRpcInput">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                        <div class="form-group" style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <label style="margin-bottom: 0;">System Gaming Mode</label>
+                                <p class="hint" style="margin-top: 5px;">Automatically optimize power plan and process priority when launching a game.</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="gamingModeInput">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                        
+                        <div id="controller-mapping-section" style="border-top: 1px solid #333; margin-top: 15px; padding-top: 15px;">
+                            <label style="margin-bottom: 10px; display: block;">Button Mappings</label>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <div style="background: #161616; padding: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                                    <span>Select / Click</span>
+                                    <button class="btn btn-secondary" onclick="remapButton('select')" id="btn-map-select" style="padding: 2px 10px; font-size: 12px;">Button 0</button>
+                                </div>
+                                <div style="background: #161616; padding: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                                    <span>Back</span>
+                                    <button class="btn btn-secondary" onclick="remapButton('back')" id="btn-map-back" style="padding: 2px 10px; font-size: 12px;">Button 1</button>
+                                </div>
+                            </div>
+                            <p class="hint" id="remap-status" style="height: 20px; color: var(--accent-color); font-weight: bold;"></p>
+                        </div>
+                    </div>
+
+                    <!-- System -->
+                    <div class="settings-card" style="border-color: #5a2a2a;">
+                        <h2 style="color: #ff6b6b;">⚠️ System</h2>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 15px;">
+                            <span style="color: #aaa;">Clear all downloaded images and metadata.</span>
+                            <button class="btn btn-secondary" onclick="cleanCache()">Clean Metadata Cache</button>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 15px;">
+                            <span style="color: #aaa;">Clear all temporary download files and partial archives.</span>
+                            <button class="btn btn-secondary" onclick="cleanDownloadCache()">Clean Download Cache</button>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 15px;">
+                            <span style="color: #aaa;">Remove known orphaned save data folders.</span>
+                            <button class="btn btn-secondary" onclick="openCleanSavesDialog()">Clean Unused Save Data</button>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="color: #aaa;">Restart the application to apply deep configuration changes.</span>
+                            <button class="btn btn-danger" onclick="ipcRenderer.send('restart_app')">Restart Application</button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <div id="footer">
+            <span id="footerStatus" style="display: flex; align-items: center;"><span class="spin">↻</span> Connecting...</span>
+            <span>V3.0.0</span>
+        </div>
+    </div>
+
+    <div id="fullscreen-overlay" onclick="closeFullscreen()">
+        <div class="fullscreen-arrow" style="left: 20px;" onclick="event.stopPropagation(); changeSlide(-1); updateFullscreenImg();">❮</div>
+        <div class="fullscreen-arrow" style="right: 20px;" onclick="event.stopPropagation(); changeSlide(1); updateFullscreenImg();">❯</div>
+        <img id="fullscreen-img" src="">
+    </div>
+
+    <style>
+        /* Fullscreen Overlay */
+        #fullscreen-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(5px);
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        .fullscreen-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            color: white;
+            font-size: 60px;
+            cursor: pointer;
+            padding: 20px;
+            user-select: none;
+            transition: color 0.2s, transform 0.2s;
+            z-index: 2100;
+            text-shadow: 0 0 20px rgba(0,0,0,1);
+        }
+
+        .fullscreen-arrow:hover {
+            color: var(--accent-color);
+            transform: translateY(-50%) scale(1.2);
+        }
+        
+        #fullscreen-img {
+            max-width: 90vw;
+            max-height: 90vh;
+            border-radius: 4px;
+            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+            transform: scale(0.9);
+            animation: zoomIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes zoomIn {
+            to { transform: scale(1); }
+        }
+    </style>
+
+    <div id="context-menu" class="context-menu"></div>
+
+    <!-- Custom Modal Overlay -->
+    <div id="modal-overlay" class="modal-overlay">
+        <div class="modal-card">
+            <h2 id="modal-title">Notification</h2>
+            <p id="modal-body">Message goes here...</p>
+            <div id="modal-footer" class="modal-footer">
+                <!-- Buttons injected by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Clean Saves Modal -->
+    <div id="clean-saves-modal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 600px;">
+            <h2>Clean Unused Save Data</h2>
+            <div class="modal-body-scroll">
+                <p style="padding: 0 0 20px 0;">Select the orphaned save folders you wish to delete from your system.</p>
+                
+                <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                    <button class="btn btn-secondary" onclick="toggleSaveSelection(true)">Select All</button>
+                    <button class="btn btn-secondary" onclick="toggleSaveSelection(false)">Deselect All</button>
+                </div>
+
+                <div id="orphaned-saves-list" class="path-list" style="max-height: none;">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="modal-btn modal-btn-secondary" onclick="closeCleanSavesDialog()">Cancel</button>
+                <button class="modal-btn modal-btn-danger" onclick="deleteSelectedSaves()">Delete Selected</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Settings Modal -->
+    <div id="game-settings-modal" class="modal-overlay">
+        <div class="modal-card">
+            <h2 id="gs-title">Game Settings</h2>
+            
+            <div class="modal-body-scroll">
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>Game Alias</label>
+                        <input type="text" id="gs-alias" style="width: 100%; padding: 10px; background: #161616; border: 1px solid #333; color: white; border-radius: 6px; box-sizing: border-box;">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>Executable Path</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="gs-exe" style="flex: 1; padding: 10px; background: #161616; border: 1px solid #333; color: white; border-radius: 6px; box-sizing: border-box;">
+                            <button class="btn btn-secondary" onclick="selectGameExe()" style="padding: 0 15px;">📁</button>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>Launch Arguments (one per line)</label>
+                        <textarea id="gs-args" style="width: 100%; height: 60px; padding: 10px; background: #161616; border: 1px solid #333; color: white; border-radius: 6px; box-sizing: border-box; resize: vertical; font-family: inherit;"></textarea>
+                    </div>
+                    
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>Save Data Path</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="gs-save-path" style="flex: 1; padding: 10px; background: #161616; border: 1px solid #333; color: white; border-radius: 6px; box-sizing: border-box;">
+                            <select id="gs-save-candidates" style="display:none; max-width: 150px; background: #252526; color: white; border: 1px solid #333; border-radius: 6px;" onchange="document.getElementById('gs-save-path').value = this.value">
+                                <option value="">Detected...</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; border-top: 1px solid #333; padding-top: 15px; margin-top: 10px;">
+                        <div style="flex: 1;">
+                            <label style="display:block; margin-bottom:5px; font-size:12px; color:#aaa;">Pre-Launch Script (Batch)</label>
+                            <textarea id="gs-pre-script" style="width: 100%; height: 60px; padding: 10px; background: #161616; border: 1px solid #333; color: white; border-radius: 6px; resize: vertical; font-family: inherit;"></textarea>
+                        </div>
+                        <div style="flex: 1;">
+                            <label style="display:block; margin-bottom:5px; font-size:12px; color:#aaa;">Post-Exit Script (Batch)</label>
+                            <textarea id="gs-post-script" style="width: 100%; height: 60px; padding: 10px; background: #161616; border: 1px solid #333; color: white; border-radius: 6px; resize: vertical; font-family: inherit;"></textarea>
+                        </div>
+                    </div>
+
+                    <div id="gs-backups-section" style="border-top: 1px solid #333; padding-top: 15px; margin-top: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <label style="margin:0;">Save Backups</label>
+                            <button class="btn btn-secondary" onclick="triggerManualBackup()" style="padding: 2px 10px; font-size: 12px;">Create New</button>
+                        </div>
+                        <ul id="gs-backup-list" class="path-list" style="max-height: 100px; margin-bottom: 0;"></ul>
+                    </div>
+
+                    <div id="gs-maintenance-section" style="border-top: 1px solid #333; padding-top: 15px; margin-top: 10px;">
+                        <label style="margin-bottom: 10px; display: block;">Maintenance Tools</label>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <button class="btn btn-secondary" onclick="runIntegrityCheck()">🛡️ Check Integrity</button>
+                            <button class="btn btn-secondary" onclick="runJunkClean()">🧹 Clean Junk</button>
+                            <button class="btn btn-secondary" onclick="openFolder(currentSettingsGameId)">📂 Open Folder</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="modal-btn modal-btn-secondary" onclick="closeGameSettings()">Cancel</button>
+                <button class="modal-btn modal-btn-primary" onclick="saveGameSettings()">Save Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        /* Modal Overlay */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(4px);
+            z-index: 5000;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.2s ease-out;
+        }
+        .modal-card {
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 0; /* Remove global padding */
+            width: 100%;
+            max-width: 550px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            transform: scale(0.9);
+            animation: modalZoom 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            overflow: hidden;
+        }
+        @keyframes modalZoom { to { transform: scale(1); } }
+        .modal-card h2 { 
+            margin: 0; 
+            color: white; 
+            font-size: 20px; 
+            border-bottom: 1px solid #333; 
+            padding: 25px 30px; 
+            flex-shrink: 0; 
+            background: #1e1e1e;
+        }
+        .modal-card p { color: #ccc; line-height: 1.6; font-size: 15px; margin: 0; padding: 0 30px 20px 30px; }
+        .modal-footer { 
+            display: flex; 
+            justify-content: flex-end; 
+            gap: 12px; 
+            flex-shrink: 0; 
+            padding: 20px 30px; 
+            background: #1a1a1a; 
+            border-top: 1px solid #333;
+        }
+        
+        .modal-body-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 30px;
+        }
+        
+        .modal-btn {
+            padding: 10px 25px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+            border: none;
+        }
+        .modal-btn-primary { background: var(--accent-color); color: white; }
+        .modal-btn-primary:hover { background: #0063a8; }
+        .modal-btn-secondary { background: #333; color: #eee; }
+        .modal-btn-secondary:hover { background: #444; }
+        .modal-btn-danger { background: #2c1e1e; color: #ff6b6b; border: 1px solid #5a2a2a; }
+        .modal-btn-danger:hover { background: #3e1e1e; border-color: #ff6b6b; }
+
+        /* ... existing styles ... */
+        
+        /* Context Menu */
+        .context-menu {
+            display: none;
+            position: absolute;
+            background: #252526;
+            border: 1px solid #454545;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            border-radius: 4px;
+            z-index: 9999;
+            min-width: 180px;
+            padding: 5px 0;
+        }
+        .context-item {
+            padding: 8px 15px;
+            cursor: pointer;
+            color: #eee;
+            font-size: 13px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            outline: none; /* Handled by global :focus */
+        }
+        .context-item:focus, .context-item:hover {
+            background-color: #37373d; /* VSCode style hover */
+            color: white;
+        }
+        .context-separator {
+            height: 1px;
+            background-color: #454545;
+            margin: 5px 0;
+        }
+        .submenu {
+            display: none;
+            position: absolute;
+            left: 100%;
+            top: -5px; /* Slight offset */
+            background: #252526;
+            border: 1px solid #454545;
+            min-width: 150px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            border-radius: 4px;
+            padding: 5px 0;
+        }
+        .context-item:hover > .submenu {
+            display: block;
+        }
+        /* Arrow for submenu */
+        .context-item.has-submenu::after {
+            content: '▶';
+            font-size: 10px;
+        }
+    </style>
+
+    <script src="renderer.js"></script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+# Environments
+venv/
+env/
+node_modules/
+
+# Application Data (User Specific)
+Games/
+Downloads/
+DownloadCache/
+ConvertedMedia/
+
+# Config (User Specific)
+# Note: In production these are in %APPDATA%, but for dev they might be local
+# We ignore them just in case they appear locally
+*.json
+!backend/requirements.txt
+!frontend/package.json
+!frontend/package-lock.json
+
+# Cache & Logs
+__pycache__/
+*.pyc
+*.log
+*.pml
+*.csv
+*.tmp
+*.bak
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
