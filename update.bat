@@ -1,6 +1,8 @@
 @echo off
+echo Cleaning local changes...
+git reset --hard
 echo Checking for updates...
-git pull
+git pull origin main
 if %errorlevel% neq 0 (
     echo Update failed (Git error).
     pause
