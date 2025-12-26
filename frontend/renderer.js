@@ -1210,8 +1210,15 @@ function renderSearchResults(results, category) {
     const grid = document.getElementById('searchResults'); grid.innerHTML = '';
     if (!results || results.length === 0) { grid.innerHTML = '<p>No results found.</p>'; return; }
     results.forEach(r => {
-        const d = document.createElement('div'); d.style.cssText = 'padding:15px; background:#252526; border-radius:6px; display:flex; justify-content:space-between; align-items:center; cursor:pointer;';
+        const d = document.createElement('div');
+        d.className = 'search-result-item'; // Add class for selector
+        d.setAttribute('tabindex', '0'); // Make focusable
+        d.style.cssText = 'padding:15px; background:#252526; border-radius:6px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; outline:none;';
         const attrTitle = r.title.replace(/"/g, '&quot;'), attrUrl = r.url.replace(/"/g, '&quot;');
+        
+        // Enter key to click
+        d.onkeydown = (e) => { if (e.key === 'Enter') { showSearchPreview(r.title, r.url); } };
+        
         d.onclick = () => showSearchPreview(r.title, r.url);
         let actionButtons = '';
         if (category === 'Games') {
@@ -1648,15 +1655,12 @@ function handleNav(dir) {
     // 1. Handle Modal
     const modal = document.querySelector('.modal-overlay[style*="display: flex"]');
     if (modal) {
-        // Trap focus in modal
         if (!modal.contains(active)) {
             const first = modal.querySelector('button, input, textarea, select');
             if (first) first.focus();
             return;
         }
-        if (dir === 'left' || dir === 'right' || dir === 'up' || dir === 'down') {
-            moveFocusSibling(active, dir);
-        }
+        moveFocusSibling(active, dir);
         return;
     }
 
@@ -1669,31 +1673,35 @@ function handleNav(dir) {
             return;
         }
         if (dir === 'up' || dir === 'down') moveFocusSibling(active, dir);
-        else if (dir === 'right' || dir === 'left') {
-            // Close context menu on horizontal nav? Or submenus?
-            // For now, simple close on left
-            if (dir === 'left') {
-                ctx.style.display = 'none';
-                focusFirstTreeItem();
-            }
+        else if (dir === 'left') {
+            ctx.style.display = 'none';
+            focusFirstTreeItem();
         }
         return;
     }
 
+    // Default focus if body is active
     if (!active || active === document.body) {
-        // Default focus: First sidebar item
-        document.querySelector('.nav-item').focus();
+        document.querySelector('.nav-item.active').focus();
         return;
     }
 
-    // Identify current zone
+    // Identify Zones
     const isSidebar = active.classList.contains('nav-item');
-    const isTree = active.classList.contains('tree-item') || active.tagName === 'SUMMARY';
+    const isTree = active.classList.contains('tree-item') || active.tagName === 'SUMMARY' || active.id === 'librarySearch' || active.id === 'librarySort';
     const isDetail = document.getElementById('details-panel').contains(active);
+    const isSearch = active.classList.contains('search-result-item') || active.id === 'searchInput' || active.id === 'searchCategory';
+    const isSettings = active.closest('.settings-card') || active.closest('.simple-header');
 
     if (isSidebar) {
         if (dir === 'up' || dir === 'down') moveFocusSibling(active, dir);
-        else if (dir === 'right') focusFirstTreeItem();
+        else if (dir === 'right') {
+            // Determine active view to jump to
+            const activeView = document.querySelector('.view.active').id;
+            if (activeView === 'view-library') focusFirstTreeItem();
+            else if (activeView === 'view-search') document.getElementById('searchInput').focus();
+            else if (activeView === 'view-settings') document.querySelector('#view-settings input').focus();
+        }
     } 
     else if (isTree) {
         if (dir === 'up' || dir === 'down') moveFocusSibling(active, dir);
@@ -1701,11 +1709,25 @@ function handleNav(dir) {
         else if (dir === 'right') focusDetailsAction();
     }
     else if (isDetail) {
-        if (dir === 'left') focusFirstTreeItem();
-        // Simple detail nav: just tab through buttons basically
-        // Or implement spatial nav later. For now, rely on default tab order logic
-        // But mapped to directional? That's complex. 
-        // Let's stick to 'left' escaping back to tree.
+        if (dir === 'left') {
+            // If focused on leftmost element, go back to tree
+            // Visual check or simple assume left escapes detail
+            focusFirstTreeItem();
+        } else {
+             moveFocusSibling(active, dir);
+        }
+    }
+    else if (isSearch) {
+        if (dir === 'left' && (active.id === 'searchCategory' || active.id === 'searchInput')) focusSidebar();
+        else moveFocusSibling(active, dir);
+    }
+    else if (isSettings) {
+        if (dir === 'left') focusSidebar();
+        else moveFocusSibling(active, dir);
+    }
+    else {
+        // Fallback generic move
+        moveFocusSibling(active, dir);
     }
 }
 
@@ -1714,27 +1736,67 @@ function moveFocusSibling(el, dir) {
     if (el.classList.contains('nav-item')) selector = '.nav-item';
     else if (el.classList.contains('tree-item') || el.tagName === 'SUMMARY') selector = '#library-tree summary, #library-tree .tree-item';
     else if (el.classList.contains('context-item')) selector = '.context-item';
-    else if (el.closest('.modal-card')) selector = '.modal-card button, .modal-card input, .modal-card textarea, .modal-card select, .modal-card .path-list input';
-    
+    else if (el.closest('.modal-card')) selector = '.modal-card button:not([disabled]), .modal-card input, .modal-card textarea, .modal-card select, .modal-card .path-list input';
+    else if (el.classList.contains('search-result-item')) selector = '.search-result-item';
+    else if (el.closest('#download-queue-list')) selector = '.queue-item';
+    else if (el.closest('.settings-card')) selector = '.settings-card input, .settings-card button, .settings-card select';
+
     const all = Array.from(document.querySelectorAll(selector)).filter(e => {
-        // Ensure we only pick items from the *visible* modal/context menu
         if (el.closest('.modal-card') && !e.closest('.modal-card').parentElement.style.display.includes('flex')) return false;
         if (el.closest('#context-menu') && e.closest('#context-menu').style.display === 'none') return false;
-        return e.offsetParent !== null;
+        return e.offsetParent !== null && !e.disabled;
     });
     
-    const idx = all.indexOf(el);
-    if (idx === -1) return;
+    // Grid Navigation Logic (Visual)
+    const currentRect = el.getBoundingClientRect();
+    const currentCenter = { x: currentRect.left + currentRect.width / 2, y: currentRect.top + currentRect.height / 2 };
 
-    let target = null;
-    if (dir === 'up' && idx > 0) target = all[idx - 1];
-    else if (dir === 'down' && idx < all.length - 1) target = all[idx + 1];
-    else if (dir === 'left' && idx > 0) target = all[idx - 1]; // Support Left/Right in modals (buttons often horizontal)
-    else if (dir === 'right' && idx < all.length - 1) target = all[idx + 1];
-    
-    if (target) {
-        target.focus();
-        target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    let bestCandidate = null;
+    let minDistance = Infinity;
+
+    all.forEach(candidate => {
+        if (candidate === el) return;
+
+        const rect = candidate.getBoundingClientRect();
+        const center = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        
+        // Directional Filters
+        let isValid = false;
+        if (dir === 'up') isValid = center.y < currentCenter.y - 10; // -10 tolerance
+        else if (dir === 'down') isValid = center.y > currentCenter.y + 10;
+        else if (dir === 'left') isValid = center.x < currentCenter.x - 10;
+        else if (dir === 'right') isValid = center.x > currentCenter.x + 10;
+
+        if (isValid) {
+            // Euclidean distance
+            const dist = Math.sqrt(Math.pow(center.x - currentCenter.x, 2) + Math.pow(center.y - currentCenter.y, 2));
+            
+            // Bias against elements that are too far away in the perpendicular axis
+            let perpDist = 0;
+            if (dir === 'up' || dir === 'down') perpDist = Math.abs(center.x - currentCenter.x);
+            else perpDist = Math.abs(center.y - currentCenter.y);
+
+            // Penalize perpendicular distance to favor straight lines
+            const weightedDist = dist + (perpDist * 2);
+
+            if (weightedDist < minDistance) {
+                minDistance = weightedDist;
+                bestCandidate = candidate;
+            }
+        }
+    });
+
+    // Fallback to DOM order for flat lists if visual nav fails or is ambiguous (like perfectly aligned lists)
+    if (!bestCandidate) {
+        const idx = all.indexOf(el);
+        if (dir === 'up' && idx > 0) bestCandidate = all[idx - 1];
+        else if (dir === 'down' && idx < all.length - 1) bestCandidate = all[idx + 1];
+        // For left/right in lists, we might want to exit the list (handled in handleNav) or wrap
+    }
+
+    if (bestCandidate) {
+        bestCandidate.focus();
+        bestCandidate.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 }
 
