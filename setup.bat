@@ -23,9 +23,8 @@ if %errorlevel% neq 0 (
         pause
         exit /b
     )
-    echo Python installed. Please RESTART this script to refresh environment.
-    pause
-    exit /b
+    echo Refreshing PATH...
+    for /f "tokens=*" %%i in ('powershell -NoProfile -Command "[System.Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path', 'User')"') do set "PATH=%%i"
 )
 
 :: Node.js Check
@@ -38,9 +37,8 @@ if %errorlevel% neq 0 (
         pause
         exit /b
     )
-    echo Node.js installed. Please RESTART this script.
-    pause
-    exit /b
+    echo Refreshing PATH...
+    for /f "tokens=*" %%i in ('powershell -NoProfile -Command "[System.Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path', 'User')"') do set "PATH=%%i"
 )
 
 :: 2. Backend Setup (Local)

@@ -4,7 +4,7 @@ setlocal EnableDelayedExpansion
 set "APP_NAME=SyntaxRipper"
 set "INSTALL_DIR=%LOCALAPPDATA%\%APP_NAME%"
 set "CONFIG_DIR=%APPDATA%\%APP_NAME%"
-set "REPO_URL=https://github.com/Syntaxerrorontop/SyntaxRipper"
+set "REPO_URL=https://github.com/Syntaxerrorontop/SyntaxRipper.git"
 :: NOTE: Replace REPO_URL above with your actual Git URL before distributing!
 
 echo ========================================================
@@ -14,15 +14,21 @@ echo ========================================================
 :: 1. Check & Install Dependencies via Winget
 echo [1/5] Checking System Dependencies...
 
+:: Check for Winget
+where winget >nul 2>nul
+if %errorlevel% neq 0 (
+    echo    [!] Winget not found. Please install Winget or manually install Git and Python.
+    pause
+    exit /b 1
+)
+
+set "RESTART_NEEDED=0"
+
 where python >nul 2>nul
 if %errorlevel% neq 0 (
     echo    -> Python not found. Installing via Winget...
     winget install Python.Python.3.11 -e --silent --accept-package-agreements --accept-source-agreements
-    if %errorlevel% neq 0 (
-        echo    [!] Failed to install Python. Please install Python 3.11 manually.
-        pause
-        exit /b 1
-    )
+    set "RESTART_NEEDED=1"
 ) else (
     echo    -> Python is installed.
 )
@@ -31,17 +37,16 @@ where git >nul 2>nul
 if %errorlevel% neq 0 (
     echo    -> Git not found. Installing via Winget...
     winget install Git.Git -e --silent --accept-package-agreements --accept-source-agreements
-    if %errorlevel% neq 0 (
-        echo    [!] Failed to install Git. Please install Git manually.
-        pause
-        exit /b 1
-    )
+    set "RESTART_NEEDED=1"
 ) else (
     echo    -> Git is installed.
 )
 
-:: Refresh Env vars (sometimes needed after install)
-call RefreshEnv.cmd >nul 2>nul
+:: Refresh Environment Variables if anything was installed
+if "%RESTART_NEEDED%"=="1" (
+    echo    -> Refreshing PATH...
+    for /f "tokens=*" %%i in ('powershell -NoProfile -Command "[System.Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path', 'User')"') do set "PATH=%%i"
+)
 
 :: 2. Handle AppData (Config) Migration
 echo [2/5] Managing Configuration...
