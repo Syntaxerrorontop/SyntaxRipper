@@ -1274,6 +1274,13 @@ async def clean_cache():
         logger.error(f"Error cleaning cache: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/system/open-logs")
+async def open_log_dir():
+    if os.path.exists(APPDATA_CACHE_PATH):
+        os.startfile(APPDATA_CACHE_PATH)
+        return {"status": "opened"}
+    raise HTTPException(status_code=404, detail="Log directory not found")
+
 @app.post("/api/library/force-update")
 async def force_update_config():
     """Forces a re-scan of game executables and metadata."""

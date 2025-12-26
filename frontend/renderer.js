@@ -380,6 +380,12 @@ async function cleanDownloadCache() {
     } catch(e) { await showAlert("Error", e.message); }
 }
 
+async function openLogDir() {
+    try {
+        await fetch(`${API_URL}/api/system/open-logs`, { method: 'POST' });
+    } catch(e) { await showAlert("Error", "Failed to open logs: " + e.message); }
+}
+
 async function forceUpdateConfig() {
     if (!await showConfirm("Force Update", "This will re-scan all game folders for executables and metadata. Continue?", false)) return;
     try {
