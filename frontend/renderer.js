@@ -382,7 +382,11 @@ async function cleanDownloadCache() {
 
 async function openLogDir() {
     try {
-        await fetch(`${API_URL}/api/system/open-logs`, { method: 'POST' });
+        const res = await fetch(`${API_URL}/api/system/open-logs`, { method: 'POST' });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || "Unknown error");
+        }
     } catch(e) { await showAlert("Error", "Failed to open logs: " + e.message); }
 }
 
