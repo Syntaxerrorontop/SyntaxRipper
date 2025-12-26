@@ -805,35 +805,70 @@ class AsyncDownloadManager:
         if not os.path.exists(self.userconfig.DOWNLOAD_CACHE_PATH):
             os.makedirs(self.userconfig.DOWNLOAD_CACHE_PATH)
 
-        # 1. Use LIBB to determine Provider and resolve link
-        try:
-            best_downloader_data = LIBBDownloader.get_downloader(url)
-            if not best_downloader_data or not best_downloader_data.enabled:
-                self._emit("error", "URL not supported or provider disabled.")
+        # 1. Determine Provider / Scrape Site
+        direct_provider = None
+        for key, data in downloader_data["provider"].items():
+            if re.search(data["identifier"], url):
+                direct_provider = key
+                break
+        
+        best_downloader = None
+        best_key = None
+        links = {}
+        
+        # Original Logic: Scrape SteamRIP/Filmpalast first
+        if not direct_provider:
+            if "steamrip.com" in url.lower():
+                self._emit("status", "Scraping SteamRIP page...")
+                links, name = Downloader.steamrip(url, downloader_data, self.scraper)
+                if not alias:
+                    alias = name
+                self.current_download_info["alias"] = alias
+                best_downloader, best_key = _get_best_downloader(links)
+            elif "filmpalast.to" in url.lower():
+                self._emit("status", "Scraping Filmpalast page...")
+                links, name = Downloader.filmpalast(url, downloader_data, self.scraper)
+                if not alias:
+                    alias = name
+                self.current_download_info["alias"] = alias
+                best_downloader, best_key = _get_best_downloader(links)
+            else:
+                self._emit("error", "URL not supported or no direct provider found.")
                 return
+        else:
+            best_downloader = downloader_data["provider"][direct_provider]
+            best_key = direct_provider
+            links = {direct_provider: url}
+
+        if not best_downloader:
+            self._emit("error", "No valid download provider found.")
+            return
+
+        # 2. Get Direct Link using LIBB
+        target_url = links[best_key]
+        self._emit("status", f"Resolving link with {best_key}...")
+        
+        try:
+            # Use LIBB to resolve the provider link (target_url)
+            # LIBBDownloader.get_downloader returns DownloaderData wrapper
+            libb_data = LIBBDownloader.get_downloader(target_url)
             
-            # Resolve Direct Link
-            self._emit("status", f"Resolving link with {url.split('/')[2]}...")
-            
-            # LIBB Extract returns DownloadableContext
-            context = best_downloader_data.extract(url)
+            if not libb_data or not libb_data.enabled:
+                self._emit("error", f"Provider {best_key} not supported by LIBB or disabled.")
+                return
+
+            context = libb_data.extract(target_url)
             
             if not context or not context.url:
-                self._emit("error", "Failed to extract direct download link.")
+                self._emit("error", "Failed to extract direct download link via LIBB.")
                 return
 
-            # Update alias if it was a SteamRIP page
-            if not alias:
-                alias = get_name_from_url(url)
-            self.current_download_info["alias"] = alias
-
-            # 3. Start Download using context data
+            # 3. Start Download
             self._emit("status", "Downloading...")
             file_ending = context.file_extension
-            worker_count = context.worker # Use worker from context
-            delay = context.delay # Use delay from context
+            worker_count = context.worker
+            delay = context.delay
             
-            # Convert context to the expected link_data dict format for _execute_download
             link_data = {
                 "url": context.url,
                 "headers": context.headers,
@@ -845,8 +880,8 @@ class AsyncDownloadManager:
             self._execute_download(link_data, worker_count, file_ending, delay)
 
         except Exception as e:
-            logging.error(f"LIBB Downloader Error: {e}")
-            self._emit("error", f"Link resolution failed: {e}")
+            logging.error(f"Download Loop Error: {e}")
+            self._emit("error", str(e))
 
     def _execute_download(self, link_data, worker_count, file_ending, delay=0.5):
         url = link_data["url"]
