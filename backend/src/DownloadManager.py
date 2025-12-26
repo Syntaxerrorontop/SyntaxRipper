@@ -845,34 +845,26 @@ class AsyncDownloadManager:
                 self._emit("status", f"Resolving link with {best_downloader_data.key}...")
                 context = best_downloader_data.get_context()
                 
-                if not context or not context.url:
-                    logging.warning(f"Provider {best_downloader_data.key} failed to return a valid link. Trying next...")
-                    ignore_providers.append(best_downloader_data.key)
-                    continue
-
-                                                                        # 3. Start Download
-
-                                                                        self._emit("status", "Downloading...")
-
-                                                                        file_ending = context.file_extension
-
-                                                                        
-
-                                                                        # These are now guaranteed to be on the context by LIBB
-
-                                                                        worker_count = context.worker
-
-                                                                        delay = context.delay
-
-                                                                        
-
-                                                                        link_data = {                    "url": context.url,
-                    "headers": context.headers,
-                    "payload": context.payload,
-                    "method": context.method,
-                    "session": context.session
-                }
+                                if not context or not context.url:
+                                    logging.warning(f"Provider {best_downloader_data.key} failed to return a valid link. Trying next...")
+                                    ignore_providers.append(best_downloader_data.key)
+                                    continue
                 
+                                # 3. Start Download
+                                self._emit("status", "Downloading...")
+                                file_ending = context.file_extension
+                                
+                                # These are now guaranteed to be on the context by LIBB
+                                worker_count = context.worker
+                                delay = context.delay
+                                
+                                link_data = {
+                                    "url": context.url,
+                                    "headers": context.headers,
+                                    "payload": context.payload,
+                                    "method": context.method,
+                                    "session": context.session
+                                }                
                 # If _execute_download finishes without exception, we are done
                 # Note: If it fails internally, it might emit 'error' but return. 
                 # We need to decide if we retry on download failure too.
