@@ -805,59 +805,28 @@ class AsyncDownloadManager:
         if not os.path.exists(self.userconfig.DOWNLOAD_CACHE_PATH):
             os.makedirs(self.userconfig.DOWNLOAD_CACHE_PATH)
 
-        # 1. Determine Provider / Scrape Site
-        direct_provider = None
-        for key, data in downloader_data["provider"].items():
-            if re.search(data["identifier"], url):
-                direct_provider = key
-                break
-        
-        best_downloader = None
-        best_key = None
-        links = {}
-        
-        # Original Logic: Scrape SteamRIP/Filmpalast first
-        if not direct_provider:
-            if "steamrip.com" in url.lower():
-                self._emit("status", "Scraping SteamRIP page...")
-                links, name = Downloader.steamrip(url, downloader_data, self.scraper)
-                if not alias:
-                    alias = name
-                self.current_download_info["alias"] = alias
-                best_downloader, best_key = _get_best_downloader(links)
-            elif "filmpalast.to" in url.lower():
-                self._emit("status", "Scraping Filmpalast page...")
-                links, name = Downloader.filmpalast(url, downloader_data, self.scraper)
-                if not alias:
-                    alias = name
-                self.current_download_info["alias"] = alias
-                best_downloader, best_key = _get_best_downloader(links)
-            else:
-                self._emit("error", "URL not supported or no direct provider found.")
-                return
-        else:
-            best_downloader = downloader_data["provider"][direct_provider]
-            best_key = direct_provider
-            links = {direct_provider: url}
-
-        if not best_downloader:
-            self._emit("error", "No valid download provider found.")
-            return
-
-        # 2. Get Direct Link using LIBB
-        target_url = links[best_key]
-        self._emit("status", f"Resolving link with {best_key}...")
-        
         try:
-            # Use LIBB to resolve the provider link (target_url)
-            # LIBBDownloader.get_downloader returns DownloaderData wrapper
-            libb_data = LIBBDownloader.get_downloader(target_url)
+            # 1. Use LIBB to determine Provider/Site and resolve link
+            # LIBB handles SteamRIP scraping internally if we pass the scraper
+            best_downloader_data = LIBBDownloader.get_downloader(url, scraper=self.scraper)
             
-            if not libb_data or not libb_data.enabled:
-                self._emit("error", f"Provider {best_key} not supported by LIBB or disabled.")
+            if not best_downloader_data or not best_downloader_data.enabled:
+                self._emit("error", "URL not supported or provider disabled.")
                 return
+            
+            # If LIBB scraped metadata (name/version), use it
+            if "name" in best_downloader_data.data and not alias:
+                alias = best_downloader_data.data["name"]
+            
+            # We could also use best_downloader_data.data["version"] for version checks here if needed
+            
+            if not alias:
+                alias = get_name_from_url(url)
+            self.current_download_info["alias"] = alias
 
-            context = libb_data.extract(target_url)
+            # 2. Get Direct Link Context
+            self._emit("status", "Resolving direct link...")
+            context = best_downloader_data.get_context()
             
             if not context or not context.url:
                 self._emit("error", "Failed to extract direct download link via LIBB.")
@@ -880,8 +849,8 @@ class AsyncDownloadManager:
             self._execute_download(link_data, worker_count, file_ending, delay)
 
         except Exception as e:
-            logging.error(f"Download Loop Error: {e}")
-            self._emit("error", str(e))
+            logging.error(f"LIBB Downloader Error: {e}")
+            self._emit("error", f"Link resolution failed: {e}")
 
     def _execute_download(self, link_data, worker_count, file_ending, delay=0.5):
         url = link_data["url"]
