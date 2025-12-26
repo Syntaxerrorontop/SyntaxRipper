@@ -42,6 +42,15 @@ if %errorlevel% neq 0 (
     echo    -> Git is installed.
 )
 
+where node >nul 2>nul
+if %errorlevel% neq 0 (
+    echo    -> Node.js not found. Installing via Winget...
+    winget install OpenJS.NodeJS -e --silent --accept-package-agreements --accept-source-agreements
+    set "RESTART_NEEDED=1"
+) else (
+    echo    -> Node.js is installed.
+)
+
 :: Refresh Environment Variables if anything was installed
 if "%RESTART_NEEDED%"=="1" (
     echo    -> Refreshing PATH...
