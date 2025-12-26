@@ -892,6 +892,7 @@
                             <label>Default Download Path</label>
                             <div class="input-row">
                                 <input type="text" id="downloadPathInput" readonly>
+                                <button class="btn btn-secondary" onclick="openPath(document.getElementById('downloadPathInput').value)">📂</button>
                                 <button class="btn btn-secondary" onclick="changeDownloadPath()">Change</button>
                             </div>
                         </div>
@@ -899,6 +900,7 @@
                             <label>Default Installation Path</label>
                             <div class="input-row">
                                 <input type="text" id="installedGamesPathInput" readonly>
+                                <button class="btn btn-secondary" onclick="openPath(document.getElementById('installedGamesPathInput').value)">📂</button>
                                 <button class="btn btn-secondary" onclick="changeInstalledGamesPath()">Change</button>
                             </div>
                             <p class="hint">Where games downloaded via the launcher will be installed.</p>
@@ -907,6 +909,7 @@
                             <label>Download Cache Path</label>
                             <div class="input-row">
                                 <input type="text" id="downloadCachePathInput" readonly>
+                                <button class="btn btn-secondary" onclick="openPath(document.getElementById('downloadCachePathInput').value)">📂</button>
                                 <button class="btn btn-secondary" onclick="changeDownloadCachePath()">Change</button>
                             </div>
                             <p class="hint">Temporary location for active downloads and archives before unpacking.</p>
@@ -915,6 +918,7 @@
                             <label>Media Output Path</label>
                             <div class="input-row">
                                 <input type="text" id="mediaOutputPathInput" readonly>
+                                <button class="btn btn-secondary" onclick="openPath(document.getElementById('mediaOutputPathInput').value)">📂</button>
                                 <button class="btn btn-secondary" onclick="changeMediaOutputPath()">Change</button>
                             </div>
                             <p class="hint">Location for converted media files.</p>
@@ -1006,21 +1010,6 @@
                                 <input type="checkbox" id="gamingModeInput">
                                 <span class="slider round"></span>
                             </label>
-                        </div>
-                        
-                        <div id="controller-mapping-section" style="border-top: 1px solid #333; margin-top: 15px; padding-top: 15px;">
-                            <label style="margin-bottom: 10px; display: block;">Button Mappings</label>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                                <div style="background: #161616; padding: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
-                                    <span>Select / Click</span>
-                                    <button class="btn btn-secondary" onclick="remapButton('select')" id="btn-map-select" style="padding: 2px 10px; font-size: 12px;">Button 0</button>
-                                </div>
-                                <div style="background: #161616; padding: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
-                                    <span>Back</span>
-                                    <button class="btn btn-secondary" onclick="remapButton('back')" id="btn-map-back" style="padding: 2px 10px; font-size: 12px;">Button 1</button>
-                                </div>
-                            </div>
-                            <p class="hint" id="remap-status" style="height: 20px; color: var(--accent-color); font-weight: bold;"></p>
                         </div>
                     </div>
 

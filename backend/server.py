@@ -1286,6 +1286,16 @@ async def clean_cache():
         logger.error(f"Error cleaning cache: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+class PathRequest(BaseModel):
+    path: str
+
+@app.post("/api/system/open-path")
+async def open_any_path(request: PathRequest):
+    if os.path.exists(request.path):
+        os.startfile(request.path)
+        return {"status": "opened"}
+    raise HTTPException(status_code=404, detail="Path not found")
+
 @app.post("/api/system/open-logs")
 async def open_log_dir():
     if os.path.exists(APPDATA_CACHE_PATH):

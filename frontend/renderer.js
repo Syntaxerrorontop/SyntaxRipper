@@ -279,15 +279,9 @@ function renderSettings() {
     const resumeIn = document.getElementById('resumeStartupInput'); if (resumeIn) resumeIn.checked = currentSettings.resume_on_startup || false;
     const dryIn = document.getElementById('dryLaunchInput'); if (dryIn) dryIn.checked = currentSettings.dry_launch || false;
     const verboseIn = document.getElementById('verboseLoggingInput'); if (verboseIn) verboseIn.checked = currentSettings.verbose_logging || false;
-    const controllerIn = document.getElementById('controllerSupportInput'); if (controllerIn) controllerIn.checked = currentSettings.controller_support || false;
-    const showHiddenIn = document.getElementById('showHiddenInput'); if (showHiddenIn) showHiddenIn.checked = currentSettings.show_hidden_games || false;
+    const rpcIn = document.getElementById('discordRpcInput'); if (rpcIn) rpcIn.checked = currentSettings.discord_rpc_enabled !== false; // Default true
+    const gameModeIn = document.getElementById('gamingModeInput'); if (gameModeIn) gameModeIn.checked = currentSettings.gaming_mode_enabled !== false; // Default true
     
-    // Mappings
-    const mapSelect = document.getElementById('btn-map-select');
-    if (mapSelect && currentSettings.controller_mapping) mapSelect.textContent = `Button ${currentSettings.controller_mapping.select}`;
-    const mapBack = document.getElementById('btn-map-back');
-    if (mapBack && currentSettings.controller_mapping) mapBack.textContent = `Button ${currentSettings.controller_mapping.back}`;
-
     loadToolsStatus();
 }
 
@@ -373,6 +367,17 @@ async function changeInstalledGamesPath() {
 async function changeMediaOutputPath() {
     const path = await ipcRenderer.invoke('select-folder');
     if (path) { currentSettings.media_output_path = path; await saveSettings(); }
+}
+
+async function openPath(path) {
+    if (!path) return;
+    try {
+        await fetch(`${API_URL}/api/system/open-path`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ path: path })
+        });
+    } catch(e) { console.error(e); }
 }
 
 function togglePasswordVisibility(id) {
@@ -1550,69 +1555,63 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// --- Controller Remapping ---
-let remappingAction = null;
+// --- Controller / Keyboard Support ---
+let gamepadIndex = null;
+let gpInterval = null;
+let lastMoveTime = 0;
 
-function remapButton(action) {
-    if (!gamepadIndex === null) {
-        document.getElementById('remap-status').textContent = "Connect a gamepad first!";
-        return;
+window.addEventListener("gamepadconnected", (e) => {
+    console.log("Gamepad connected:", e.gamepad.index);
+    gamepadIndex = e.gamepad.index;
+    if (!gpInterval) gpInterval = setInterval(pollGamepad, 100);
+});
+
+window.addEventListener("gamepaddisconnected", (e) => {
+    if (gamepadIndex === e.gamepad.index) {
+        gamepadIndex = null;
+        if (gpInterval) { clearInterval(gpInterval); gpInterval = null; }
     }
-    remappingAction = action;
-    const btn = document.getElementById(`btn-map-${action}`);
-    if (btn) btn.textContent = "Press Button...";
-    document.getElementById('remap-status').textContent = `Press any button for '${action}'...`;
-}
+});
 
-// Update pollGamepad to handle remapping and use config
+// Keyboard
+document.addEventListener('keydown', (e) => {
+    if (!currentSettings.controller_support) return;
+    // Only handle if not typing in an input
+    if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+
+    if (e.key === 'ArrowUp') handleNav('up');
+    else if (e.key === 'ArrowDown') handleNav('down');
+    else if (e.key === 'ArrowLeft') handleNav('left');
+    else if (e.key === 'ArrowRight') handleNav('right');
+    else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (document.activeElement) document.activeElement.click();
+    }
+});
+
 function pollGamepad() {
-    if (gamepadIndex === null) return;
+    if (gamepadIndex === null || !currentSettings.controller_support) return;
     const gp = navigator.getGamepads()[gamepadIndex];
     if (!gp) return;
-
-    // Remapping Mode
-    if (remappingAction) {
-        for (let i = 0; i < gp.buttons.length; i++) {
-            if (gp.buttons[i].pressed) {
-                currentSettings.controller_mapping[remappingAction] = i;
-                document.getElementById(`btn-map-${remappingAction}`).textContent = `Button ${i}`;
-                document.getElementById('remap-status').textContent = `Saved '${remappingAction}' to Button ${i}`;
-                remappingAction = null;
-                // Wait until release to avoid triggering action immediately
-                lastMoveTime = Date.now() + 500; 
-                return;
-            }
-        }
-        return;
-    }
-
-    if (!currentSettings.controller_support) return;
 
     const now = Date.now();
     if (now - lastMoveTime < 200) return; // Debounce
 
-    // D-Pad or Left Stick (Standard layout assumption for nav, hard to remap axes simply)
+    // D-Pad or Left Stick
     const up = gp.buttons[12].pressed || gp.axes[1] < -0.5;
     const down = gp.buttons[13].pressed || gp.axes[1] > 0.5;
     const left = gp.buttons[14].pressed || gp.axes[0] < -0.5;
     const right = gp.buttons[15].pressed || gp.axes[0] > 0.5;
-    
-    // Configurable Actions
-    const selectBtn = currentSettings.controller_mapping.select || 0;
-    const backBtn = currentSettings.controller_mapping.back || 1;
-
-    const isSelect = gp.buttons[selectBtn].pressed;
-    const isBack = gp.buttons[backBtn].pressed;
+    const aBtn = gp.buttons[0].pressed;
 
     if (up) { handleNav('up'); lastMoveTime = now; }
     else if (down) { handleNav('down'); lastMoveTime = now; }
     else if (left) { handleNav('left'); lastMoveTime = now; }
     else if (right) { handleNav('right'); lastMoveTime = now; }
-    else if (isSelect) { 
+    else if (aBtn) { 
         if (document.activeElement) document.activeElement.click(); 
         lastMoveTime = now + 200; 
     }
-    // else if (isBack) { handleNav('back'); lastMoveTime = now; } // Implement 'back' nav logic later
 }
 
 function handleNav(dir) {
