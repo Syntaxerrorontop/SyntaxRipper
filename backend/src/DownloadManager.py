@@ -850,33 +850,23 @@ class AsyncDownloadManager:
                     ignore_providers.append(best_downloader_data.key)
                     continue
 
-                                                        # 3. Start Download
+                                                                        # 3. Start Download
 
-                                                        self._emit("status", "Downloading...")
+                                                                        self._emit("status", "Downloading...")
 
-                                                        file_ending = context.file_extension
+                                                                        file_ending = context.file_extension
 
-                                                        
+                                                                        
 
-                                                        # Robust attribute access with multiple fallbacks
+                                                                        # These are now guaranteed to be on the context by LIBB
 
-                                                        worker_count = 1
+                                                                        worker_count = context.worker
 
-                                                        if hasattr(context, 'worker'): worker_count = context.worker
+                                                                        delay = context.delay
 
-                                                        elif hasattr(best_downloader_data, 'worker'): worker_count = best_downloader_data.worker
+                                                                        
 
-                                                        
-
-                                                        delay = 0.5
-
-                                                        if hasattr(context, 'delay'): delay = context.delay
-
-                                                        elif hasattr(best_downloader_data, 'delay'): delay = best_downloader_data.delay
-
-                                                        
-
-                                                        link_data = {                    "url": context.url,
+                                                                        link_data = {                    "url": context.url,
                     "headers": context.headers,
                     "payload": context.payload,
                     "method": context.method,

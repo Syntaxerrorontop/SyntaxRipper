@@ -486,11 +486,9 @@ class DownloaderData:
     def get_context(self) -> DownloadableContext:
         ctx = self.extract(self.url)
         if ctx:
-            # Inject worker and delay from config if not already set or to override
-            if hasattr(self, 'worker') and self.worker is not None:
-                ctx.worker = self.worker
-            if hasattr(self, 'delay') and self.delay is not None:
-                ctx.delay = self.delay
+            # Ensure worker and delay are always set from the provider data
+            ctx.worker = getattr(self, 'worker', 1)
+            ctx.delay = getattr(self, 'delay', 0.5)
         return ctx
 
 class DownloadUtils:
