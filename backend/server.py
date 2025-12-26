@@ -16,6 +16,11 @@ import re
 import urllib.parse
 from contextlib import asynccontextmanager
 
+# Force UTF-8 for stdout/stderr to handle emojis on Windows
+if sys.platform == 'win32':
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
+
 # Local imports
 from src.scraper import UniversalScraper
 from src.DownloadManager import AsyncDownloadManager
