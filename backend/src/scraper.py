@@ -96,6 +96,7 @@ except ImportError:
         [
             "pip",
             "install",
+            "setuptools",
             "undetected-chromedriver",
             "selenium",
             "beautifulsoup4",
