@@ -87,8 +87,8 @@ call setup.bat
 
 :: 5. Create Shortcuts
 echo [5/5] Creating Start Menu Shortcut...
-set "ICON_PATH=%INSTALL_DIR%\frontend\assets\logo.png"
-set "TARGET_EXE=%INSTALL_DIR%\start.bat"
+set "ICON_PATH=%INSTALL_DIR%\frontend\assets\Syntaxripper.ico"
+set "TARGET_EXE=%INSTALL_DIR%\Start.vbs"
 set "START_MENU=%APPDATA%\Microsoft\Windows\Start Menu\Programs"
 
 powershell -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut('%START_MENU%\%APP_NAME%.lnk'); $s.TargetPath = '%TARGET_EXE%'; $s.IconLocation = '%ICON_PATH%'; $s.WorkingDirectory = '%INSTALL_DIR%'; $s.Save()"
