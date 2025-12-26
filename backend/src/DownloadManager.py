@@ -30,13 +30,17 @@ from .utility.config_updater import update_game_configs
 from .utility.debrid import DebridManager
 from .utility.tools_manager import ToolsManager
 
-# Add LIBB to path
-import sys
-sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), "LIBB"))
+# Add backend directory to path to allow 'import LIBB'
+backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if backend_dir not in sys.path:
+    sys.path.append(backend_dir)
+
 try:
-    from downloader import Downloader as LIBBDownloader, DownloadUtils as LIBBUtils
-except ImportError:
-    logging.error("Failed to import LIBB from backend/LIBB")
+    from LIBB.downloader import Downloader as LIBBDownloader, DownloadUtils as LIBBUtils
+except ImportError as e:
+    logging.error(f"Failed to import LIBB: {e}")
+    import traceback
+    logging.error(traceback.format_exc())
 
 # Global lock for thread safety
 queue_lock = threading.Lock()
