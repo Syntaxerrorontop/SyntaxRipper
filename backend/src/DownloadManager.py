@@ -1136,12 +1136,18 @@ class AsyncDownloadManager:
             if file_ending == "rar":
                 self._emit("status", "Unpacking...")
                 
-                # Setup paths
-                unrar_tool = os.path.join(APPDATA_CACHE_PATH, "Tools", "UnRAR.exe")
-                # Fallback to local Tools if not in AppData
+                # Setup paths: Try system PATH first, then AppData fallback
+                unrar_tool = shutil.which("unrar")
+                if not unrar_tool:
+                    unrar_tool = os.path.join(APPDATA_CACHE_PATH, "Tools", "UnRAR.exe")
                 if not os.path.exists(unrar_tool):
                     unrar_tool = os.path.join(os.getcwd(), "Tools", "UnRAR.exe")
                 
+                # Final check
+                if not unrar_tool or (not os.path.exists(unrar_tool) and "unrar" not in unrar_tool):
+                    self._emit("error", "UnRAR tool not found. Please install WinRAR.")
+                    return
+
                 unpack_folder = os.path.join(target_dir, item_hash)
                 if os.path.exists(unpack_folder):
                     shutil.rmtree(unpack_folder)
