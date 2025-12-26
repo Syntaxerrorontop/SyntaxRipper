@@ -810,52 +810,77 @@ class AsyncDownloadManager:
         if not os.path.exists(self.userconfig.DOWNLOAD_CACHE_PATH):
             os.makedirs(self.userconfig.DOWNLOAD_CACHE_PATH)
 
-        try:
-            # 1. Use LIBB to determine Provider/Site and resolve link
-            # LIBB handles SteamRIP scraping internally if we pass the scraper
-            best_downloader_data = LIBBDownloader.get_downloader(url, scraper=self.scraper)
-            
-            if not best_downloader_data or not best_downloader_data.enabled:
-                self._emit("error", "URL not supported or provider disabled.")
-                return
-            
-            # If LIBB scraped metadata (name/version), use it
-            if "name" in best_downloader_data.data and not alias:
-                alias = best_downloader_data.data["name"]
-            
-            # We could also use best_downloader_data.data["version"] for version checks here if needed
-            
-            if not alias:
-                alias = get_name_from_url(url)
-            self.current_download_info["alias"] = alias
+        ignore_providers = []
+        
+        while True:
+            if self.should_stop: return
 
-            # 2. Get Direct Link Context
-            self._emit("status", "Resolving direct link...")
-            context = best_downloader_data.get_context()
-            
-            if not context or not context.url:
-                self._emit("error", "Failed to extract direct download link via LIBB.")
-                return
+            try:
+                # 1. Use LIBB to determine Provider/Site and resolve link
+                # Passing the ignore list to skip failed providers
+                best_downloader_data = LIBBDownloader.get_downloader(url, scraper=self.scraper, ignore=ignore_providers)
+                
+                if not best_downloader_data:
+                    self._emit("error", "All download providers failed.")
+                    # Remove from queue if everything failed
+                    item_hash = self.current_download_info.get("hash")
+                    if item_hash:
+                        self.download_queue = [item for item in self.download_queue if item["hash"] != item_hash]
+                        self._save_queue()
+                    return
 
-            # 3. Start Download
-            self._emit("status", "Downloading...")
-            file_ending = context.file_extension
-            worker_count = context.worker
-            delay = context.delay
-            
-            link_data = {
-                "url": context.url,
-                "headers": context.headers,
-                "payload": context.payload,
-                "method": context.method,
-                "session": context.session
-            }
-            
-            self._execute_download(link_data, worker_count, file_ending, delay)
+                if not best_downloader_data.enabled:
+                    ignore_providers.append(best_downloader_data.key)
+                    continue
+                
+                # If LIBB scraped metadata (name/version), use it
+                if "name" in best_downloader_data.data and not alias:
+                    alias = best_downloader_data.data["name"]
+                
+                if not alias:
+                    alias = get_name_from_url(url)
+                self.current_download_info["alias"] = alias
 
-        except Exception as e:
-            logging.error(f"LIBB Downloader Error: {e}")
-            self._emit("error", f"Link resolution failed: {e}")
+                # 2. Get Direct Link Context
+                self._emit("status", f"Resolving link with {best_downloader_data.key}...")
+                context = best_downloader_data.get_context()
+                
+                if not context or not context.url:
+                    logging.warning(f"Provider {best_downloader_data.key} failed to return a valid link. Trying next...")
+                    ignore_providers.append(best_downloader_data.key)
+                    continue
+
+                # 3. Start Download
+                self._emit("status", "Downloading...")
+                file_ending = context.file_extension
+                worker_count = context.worker
+                delay = context.delay
+                
+                link_data = {
+                    "url": context.url,
+                    "headers": context.headers,
+                    "payload": context.payload,
+                    "method": context.method,
+                    "session": context.session
+                }
+                
+                # If _execute_download finishes without exception, we are done
+                # Note: If it fails internally, it might emit 'error' but return. 
+                # We need to decide if we retry on download failure too.
+                # For now, we only retry on LINK RESOLUTION failure.
+                self._execute_download(link_data, worker_count, file_ending, delay)
+                break # Success!
+
+            except Exception as e:
+                logging.error(f"LIBB Downloader Error: {e}")
+                # If we have a specific provider that caused the crash, ignore it
+                if 'best_downloader_data' in locals() and best_downloader_data:
+                    logging.warning(f"Crash during {best_downloader_data.key} resolution. Adding to ignore list.")
+                    ignore_providers.append(best_downloader_data.key)
+                    continue
+                else:
+                    self._emit("error", f"Link resolution failed: {e}")
+                    return
 
     def _execute_download(self, link_data, worker_count, file_ending, delay=0.5):
         url = link_data["url"]

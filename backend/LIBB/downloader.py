@@ -472,7 +472,8 @@ class ValidatedUrl:
         self.is_provider = is_provider
 
 class DownloaderData:
-    def __init__(self, data: dict, url):
+    def __init__(self, data: dict, url, key):
+        self.key = key
         self.formaturl = data.get("formaturl")
         self.priority = data.get("priority")
         self.identifier = data.get("identifier")
@@ -536,6 +537,8 @@ class DownloadUtils:
     @staticmethod
     def _get_best_downloader(urls: dict, ignore: list = []) -> DownloaderData:
         __best_downloader = None
+        __best_key = None
+        url = None
         
         for key, download_link in urls.items():
             if key in ignore:
@@ -546,16 +549,19 @@ class DownloadUtils:
             
             if download_link != None:
                 if __best_downloader == None:
-                    
                     __best_downloader = _download_data["provider_support"][key]
+                    __best_key = key
                     url = download_link
                     continue
                 
                 if _download_data["provider_support"][key]["priority"] < __best_downloader["priority"]:
                     __best_downloader = _download_data["provider_support"][key]
+                    __best_key = key
                     url = download_link
         
-        return DownloaderData(__best_downloader, url)
+        if __best_downloader:
+            return DownloaderData(__best_downloader, url, __best_key)
+        return None
     
     @staticmethod
     def _detect_redirect(response, session, headers={}):
@@ -586,7 +592,7 @@ class Downloader:
         if validated.is_provider:
             
             data = _download_data[parrent_key][validated.key]
-            return DownloaderData(data, url)
+            return DownloaderData(data, url, validated.key)
         
         data = _download_data[parrent_key][validated.key]
         
