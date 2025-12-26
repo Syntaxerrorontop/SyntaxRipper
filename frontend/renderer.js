@@ -1744,7 +1744,8 @@ function moveFocusSibling(el, dir) {
     const all = Array.from(document.querySelectorAll(selector)).filter(e => {
         if (el.closest('.modal-card') && !e.closest('.modal-card').parentElement.style.display.includes('flex')) return false;
         if (el.closest('#context-menu') && e.closest('#context-menu').style.display === 'none') return false;
-        return e.offsetParent !== null && !e.disabled;
+        // Robust visibility check: offsetParent covers display:none, getClientRects covers collapsed details/visibility:hidden
+        return e.offsetParent !== null && !e.disabled && e.getClientRects().length > 0;
     });
     
     // Grid Navigation Logic (Visual)
