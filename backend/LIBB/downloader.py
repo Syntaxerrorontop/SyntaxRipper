@@ -273,7 +273,9 @@ class SiteScraper:
             if "Free Download" in h1_string:
                 h1_text = h1_string.split("Free Download")
                 name = h1_text[0].strip()
-                version = h1_text[1].strip().removeprefix("(").removesuffix(")") if len(h1_text) > 1 else "N/A"
+                version = "N/A"
+                if len(h1_text) > 1 and h1_text[1].strip():
+                    version = h1_text[1].strip().removeprefix("(").removesuffix(")")
             else:
                 name = get_name_from_url(url)
                 version = "N/A"
@@ -290,9 +292,13 @@ class SiteScraper:
                 # If pattern starts with href=", make it more flexible
                 if pattern.startswith('href="'):
                     # e.g. href="//buzzheavier\.com/([^"]+)" -> href=["'](?:https?:)?//buzzheavier\.com/([^"']+)["']
-                    domain = pattern.split('//')[1].split('/')[0].replace('\\', '')
-                    flexible_pattern = f'href=["\'](?:https?:)?//{domain}/([^"\']+)["\']'
-                    regex_finder = re.findall(flexible_pattern, page_content)
+                    # Handle domain extraction safer
+                    try:
+                        domain = pattern.split('//')[1].split('/')[0].replace('\\', '')
+                        flexible_pattern = f'href=["\'](?:https?:)?//{domain}/([^"\']+)["\']'
+                        regex_finder = re.findall(flexible_pattern, page_content)
+                    except:
+                        regex_finder = re.findall(pattern, page_content)
                 else:
                     regex_finder = re.findall(pattern, page_content)
                 
@@ -307,7 +313,7 @@ class SiteScraper:
                 
         except Exception as e:
             logging.error(f"Downloader:steamrip Error fetching the URL: {e}")
-            return {}, "Unknown"
+            return {}, "Unknown", "N/A"
     
     @staticmethod
     def filmpalast(url):
