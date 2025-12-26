@@ -670,6 +670,8 @@ class AsyncDownloadManager:
             self.current_speed = 0
 
         remaining_bytes = self.current_download_info["total_size"] - self.total_downloaded
+        if remaining_bytes < 0: remaining_bytes = 0
+        
         remaining_time = remaining_bytes / self.current_speed if self.current_speed > 0 else 0
         
         return {
@@ -943,10 +945,28 @@ class AsyncDownloadManager:
                     
                     line = process.stdout.readline()
                     if "CN:" in line: # Aria2 progress line
-                        # [ ... 10% ... ]
-                        match = re.search(r'\((\d+)%\)', line)
-                        if match:
-                            self._emit("progress", int(match.group(1)))
+                        # Example: [#... 1.2MiB/4.5GiB(26%) CN:1 DL:2.3MiB]
+                        match_pct = re.search(r'\((\d+)%\)', line)
+                        if match_pct:
+                            self._emit("progress", int(match_pct.group(1)))
+                        
+                        # Try to parse downloaded/total (e.g. 1.2MiB/4.5GiB)
+                        match_size = re.search(r'([0-9.]+)([KMGT]i?B)/([0-9.]+)([KMGT]i?B)', line)
+                        if match_size:
+                            dl_val, dl_unit, tot_val, tot_unit = match_size.groups()
+                            
+                            def to_bytes(val, unit):
+                                units = {'B': 1, 'K': 1024, 'M': 1024**2, 'G': 1024**3, 'T': 1024**4}
+                                u = unit.replace('i', '')[0].upper()
+                                return int(float(val) * units.get(u, 1))
+                            
+                            self.total_downloaded = to_bytes(dl_val, dl_unit)
+                            self.current_download_info["total_size"] = to_bytes(tot_val, tot_unit)
+                            # Emit meta to update total size in UI
+                            self._emit("meta", {
+                                "total_size": self.current_download_info["total_size"], 
+                                "filename": self.current_download_info.get("alias")
+                            })
                 
                 if process.returncode == 0:
                     self._emit("progress", 100)
