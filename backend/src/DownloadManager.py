@@ -850,14 +850,14 @@ class AsyncDownloadManager:
                     ignore_providers.append(best_downloader_data.key)
                     continue
 
-                # 3. Start Download
-                self._emit("status", "Downloading...")
-                file_ending = context.file_extension
-                worker_count = context.worker
-                delay = context.delay
-                
-                link_data = {
-                    "url": context.url,
+                            # 3. Start Download
+                            self._emit("status", "Downloading...")
+                            file_ending = context.file_extension
+                            # Use getattr for robustness against library version mismatches
+                            worker_count = getattr(context, 'worker', getattr(best_downloader_data, 'worker', 1))
+                            delay = getattr(context, 'delay', getattr(best_downloader_data, 'delay', 0.5))
+                            
+                            link_data = {                    "url": context.url,
                     "headers": context.headers,
                     "payload": context.payload,
                     "method": context.method,

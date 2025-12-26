@@ -22,13 +22,16 @@ from selenium.webdriver.support import expected_conditions as EC
 logging.basicConfig(level=logging.INFO)
 
 class DownloadableContext:
-    def __init__(self, url: str, method: str, extension: str, payload: dict = {}, headers: dict = {}, session: requests.Session = None):
+    def __init__(self, url: str, method: str, extension: str, payload: dict = {}, headers: dict = {}, session: requests.Session = None, worker: int = 1, delay: float = 0.5):
         self.url = url
         self.payload = payload if payload is not None else {}
         self.headers = headers if headers is not None else {}
         self.method = method
         self.session = session
         self.file_extension = extension
+        
+        self.worker = worker
+        self.delay = delay
     
     def get_headers(self, changes: dict = {}) -> dict:
         updated_headers = self.headers.copy()
@@ -40,6 +43,7 @@ class DDLExtractor:
     def gofile(url: str) -> DownloadableContext:
         pass
     
+    @staticmethod
     def buzzheavier(url: str) -> DownloadableContext:
         logging.info(f"Starting Buzzheavier for: {url}")
         
@@ -69,11 +73,12 @@ class DDLExtractor:
             
             extension = filename.split('.')[-1]
             
-            return DownloadableContext(direct_link, "get", extension, session=session)
+            return DownloadableContext(direct_link, "get", extension, session=session, worker=_download_data["provider_support"]["buzzheavier"]["worker"], delay=_download_data["provider_support"]["buzzheavier"]["delay"])
 
         except Exception as e:
             logging.error(f"Downloader:buzzheavier Error: {e}")
     
+    @staticmethod
     def fichier(url: str) -> DownloadableContext:
         session = requests.Session()
         headers = {
@@ -119,15 +124,17 @@ class DDLExtractor:
             direct_link_btn = final_soup.find("a", class_="ok btn-general btn-orange")
             
             if direct_link_btn:
-                return DownloadableContext(direct_link_btn['href'], "get", extension)#{"url": direct_link_btn['href'], "payload": {}, "headers": {}, "method": "get"} 
+                return DownloadableContext(direct_link_btn['href'], "get", extension, worker=_download_data["provider_support"]["fichier"]["worker"], delay=_download_data["provider_support"]["fichier"]["delay"])#{"url": direct_link_btn['href'], "payload": {}, "headers": {}, "method": "get"} 
 
 
         except Exception as e:
             logging.error(f"{e}")
     
+    @staticmethod
     def datanode(url: str) -> DownloadableContext:
         pass
     
+    @staticmethod
     def megadb(url: str) -> DownloadableContext:
         logging.info("1. Konfiguriere den Schnueffler...")
     
@@ -215,7 +222,7 @@ class DDLExtractor:
                 time.sleep(0.5)
 
             if found_url:
-                return DownloadableContext(found_url, "get", found_url.split(".")[-1])
+                return DownloadableContext(found_url, "get", found_url.split(".")[-1], worker=_download_data["provider_support"]["megadb"]["worker"], delay=_download_data["provider_support"]["megadb"]["delay"])
             else:
                 logging.warning("Kein eindeutiger File-Link im Netzwerkverkehr gefunden.")
                 return None
@@ -226,9 +233,11 @@ class DDLExtractor:
             logging.info("Browser wird geschlossen.")
             driver.quit()
     
+    @staticmethod
     def vikingfile(url: str) -> DownloadableContext:
         pass
     
+    @staticmethod
     def voe(url: str) -> DownloadableContext:
         session = requests.Session()
         response = session.get(url)
@@ -251,12 +260,13 @@ class DDLExtractor:
                 logging.warning("Could not determine file extension, defaulting to 'mp4'")
                 extension = "mp4"
             
-            return DownloadableContext(link, "get", extension, session=session)
+            return DownloadableContext(link, "get", extension, session=session, worker=_download_data["provider_support"]["voe"]["worker"], delay=_download_data["provider_support"]["voe"]["delay"])
         
-    
+    @staticmethod
     def veev(url: str) -> DownloadableContext:
         pass
     
+    @staticmethod
     def strmup(url: str) -> DownloadableContext:
         pass
 
@@ -266,49 +276,28 @@ class SiteScraper:
         try:
             page_content = scraper.get_html(url)
             soup = BeautifulSoup(page_content, 'html.parser')
+            h1_text = soup.h1.string.split("Free Download")
             
-            h1 = soup.find("h1")
-            h1_string = h1.get_text() if h1 else ""
+            name = h1_text[0].strip()
+            version = h1_text[1].strip().removeprefix("(").removesuffix(")")
             
-            if "Free Download" in h1_string:
-                h1_text = h1_string.split("Free Download")
-                name = h1_text[0].strip()
-                version = "N/A"
-                if len(h1_text) > 1 and h1_text[1].strip():
-                    version = h1_text[1].strip().removeprefix("(").removesuffix(")")
-            else:
-                name = get_name_from_url(url)
-                version = "N/A"
-            
-            logging.info(f"Downloader:steamrip Extracting links for {name} ({version})")
+            logging.info("Downloader:steamrip Extracting downloadable links")
             
             found_links = {}
             
             for key, data_ in _download_data["provider_support"].items():
-                if "pattern" not in data_: continue
+
+                regex_finder = re.findall(data_["pattern"], page_content)
                 
-                # Improved regex to handle optional http/https and different quote types
-                pattern = data_["pattern"]
-                # If pattern starts with href=", make it more flexible
-                if pattern.startswith('href="'):
-                    # e.g. href="//buzzheavier\.com/([^"]+)" -> href=["'](?:https?:)?//buzzheavier\.com/([^"']+)["']
-                    # Handle domain extraction safer
-                    try:
-                        domain = pattern.split('//')[1].split('/')[0].replace('\\', '')
-                        flexible_pattern = f'href=["\'](?:https?:)?//{domain}/([^"\']+)["\']'
-                        regex_finder = re.findall(flexible_pattern, page_content)
-                    except:
-                        regex_finder = re.findall(pattern, page_content)
-                else:
-                    regex_finder = re.findall(pattern, page_content)
-                
-                if regex_finder:
-                    # Take the first match
+                if regex_finder and len(regex_finder) == 1:
                     found_links[key] = data_["formaturl"].format(detected_link = regex_finder[0])
                 else:
                     found_links[key] = None
             
             logging.info(f"Downloader:steamrip Detected download links: {found_links}")
+            
+            logging.info(f"Downloader:steamrip Generating Filename")
+            
             return found_links, name, version
                 
         except Exception as e:
