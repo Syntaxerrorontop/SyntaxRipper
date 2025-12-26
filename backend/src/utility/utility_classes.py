@@ -128,6 +128,10 @@ class UserConfig:
             "controller_support": False,
             "controller_mapping": {"select": 0, "back": 1},
             "collapsed_categories": []
+            "gaming_mode_enabled": True,
+            "last_selected_game_id": None,
+            "show_hidden_games": False,
+            "total_playtime_global": 0
         }
         
         File.check_existence(in_path, filename, add_conten=default_data, use_json=True, quite=quite)
@@ -196,6 +200,7 @@ class UserConfig:
         self.GAMING_MODE_ENABLED = self._data.get("gaming_mode_enabled", True)
         self.LAST_SELECTED_GAME_ID = self._data.get("last_selected_game_id", None)
         self.SHOW_HIDDEN_GAMES = self._data.get("show_hidden_games", False)
+        self.TOTAL_PLAYTIME_GLOBAL = self._data.get("total_playtime_global", 0)
 
     def save(self):
         self._data["shutil_move_error_replace"] = self.SHUTIL_MOVE_ERROR_REPLACE
@@ -229,5 +234,6 @@ class UserConfig:
         self._data["gaming_mode_enabled"] = self.GAMING_MODE_ENABLED
         self._data["last_selected_game_id"] = self.LAST_SELECTED_GAME_ID
         self._data["show_hidden_games"] = self.SHOW_HIDDEN_GAMES
+        self._data["total_playtime_global"] = self.TOTAL_PLAYTIME_GLOBAL
         
         save_json(self._path, self._data)

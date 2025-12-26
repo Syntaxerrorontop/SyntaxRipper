@@ -1610,13 +1610,9 @@ async def get_library_stats():
     data = load_json(config_path)
     user_config = UserConfig(CONFIG_FOLDER, "userconfig.json")
     
-    total_playtime = 0
+    total_playtime = user_config.TOTAL_PLAYTIME_GLOBAL
     total_games = 0
     genres = {}
-    
-    # Calculate local stats
-    for info in data.values():
-        total_playtime += info.get("playtime", 0)
         # Use HLTB genres if available, otherwise skip
         if "hltb" in info and info["hltb"]:
             # HLTB doesn't return genres in my simplified fetcher, only times. 

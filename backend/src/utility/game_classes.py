@@ -7,6 +7,7 @@ import threading
 
 from .utility_functions import _get_version_steamrip, save_json, load_json
 from .utility_vars import CONFIG_FOLDER
+from .utility_classes import UserConfig
 from .SaveDetector import SavePathDetector
 from .backup import SaveBackupManager
 from .scripts import ScriptExecutor
@@ -182,12 +183,21 @@ class GameInstance:
         self._process = None
     
     def update_playtime(self, playtime: float):
+        # 1. Update Game Specific Playtime
         config_path = os.path.join(CONFIG_FOLDER, "games.json")
         data = load_json(config_path)
         if self.game_name in data:
             old_playtime = float(data[self.game_name].get("playtime", 0))
             data[self.game_name]["playtime"] = int(old_playtime + playtime)
             save_json(config_path, data)
+            
+        # 2. Update Global Persistent Playtime
+        try:
+            user_config = UserConfig(CONFIG_FOLDER, "userconfig.json")
+            user_config.TOTAL_PLAYTIME_GLOBAL += int(playtime)
+            user_config.save()
+        except Exception as e:
+            self.logger.error(f"Failed to update global playtime: {e}")
 
 class Game:
     def __init__(self, name, info, installed=False):
