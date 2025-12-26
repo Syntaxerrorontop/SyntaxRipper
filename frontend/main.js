@@ -7,6 +7,7 @@ const fs = require('fs');
 let mainWindow;
 let pythonProcess;
 const PYTHON_PORT = 12345;
+const LOG_FILE = path.join(app.getPath('userData'), 'main.log');
 
 // --- Config ---
 // Adjust python command if needed (e.g. 'python3' on Mac/Linux)
@@ -18,6 +19,10 @@ const VENV_PYTHON = path.join(__dirname, '../backend/venv/Scripts/python.exe');
 if (process.platform === 'win32' && fs.existsSync(VENV_PYTHON)) {
     console.log("Using Virtual Environment Python:", VENV_PYTHON);
     PYTHON_CMD = VENV_PYTHON;
+}
+
+function logToFile(msg) {
+    fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] ${msg}\n`);
 }
 
 function createWindow() {
@@ -49,6 +54,7 @@ function createWindow() {
 
 function startPythonServer() {
   console.log('Starting Python Server...');
+  logToFile('Starting Python Server...');
   console.log('Script Path:', SERVER_SCRIPT);
 
   // Pass PID so Python can monitor us
@@ -58,20 +64,24 @@ function startPythonServer() {
 
   pythonProcess.stdout.on('data', (data) => {
     console.log(`[Python]: ${data}`);
+    logToFile(`[Python]: ${data}`);
   });
 
   pythonProcess.stderr.on('data', (data) => {
     console.error(`[Python Err]: ${data}`);
+    logToFile(`[Python Err]: ${data}`);
   });
 
   pythonProcess.on('close', (code) => {
     console.log(`Python process exited with code ${code}`);
+    logToFile(`Python process exited with code ${code}`);
   });
 }
 
 function killPythonServer() {
   if (pythonProcess) {
     console.log('Killing Python Server...');
+    logToFile('Killing Python Server...');
     const pid = pythonProcess.pid;
     pythonProcess = null; // Prevent re-entry
 

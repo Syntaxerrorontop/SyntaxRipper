@@ -21,7 +21,7 @@ from src.scraper import UniversalScraper
 from src.DownloadManager import AsyncDownloadManager
 from src.Searcher import Searcher
 from src.utility.utility_functions import load_json, save_json, hash_url, get_name_from_url, _game_naming
-from src.utility.utility_vars import CONFIG_FOLDER, CACHE_FOLDER
+from src.utility.utility_vars import CONFIG_FOLDER, CACHE_FOLDER, APPDATA_CACHE_PATH
 from src.utility.ExternalLibraryScanner import ExternalLibraryScanner
 from src.utility.utility_classes import UserConfig
 from src.utility.game_classes import Game
@@ -39,7 +39,15 @@ from src.utility.junk_cleaner import JunkCleaner
 from src.utility.media_converter import MediaConverter
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+log_file = os.path.join(APPDATA_CACHE_PATH, "server.log")
+logging.basicConfig(
+    level=logging.INFO, 
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(log_file, encoding='utf-8'),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
 logger = logging.getLogger("Server")
 
 # Global State
