@@ -484,7 +484,14 @@ class DownloaderData:
         self.data[key] = value
     
     def get_context(self) -> DownloadableContext:
-        return self.extract(self.url)
+        ctx = self.extract(self.url)
+        if ctx:
+            # Inject worker and delay from config if not already set or to override
+            if hasattr(self, 'worker') and self.worker is not None:
+                ctx.worker = self.worker
+            if hasattr(self, 'delay') and self.delay is not None:
+                ctx.delay = self.delay
+        return ctx
 
 class DownloadUtils:
     @staticmethod
