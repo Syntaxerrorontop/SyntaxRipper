@@ -1,8 +1,11 @@
 from .exceptions import InvalidUrlException, UnknownProviderException
+from .scraper import UniversalScraper
 
 import logging
 import re
 import time
+import random
+import string
 
 import requests
 import json
@@ -19,15 +22,13 @@ from selenium.webdriver.support import expected_conditions as EC
 logging.basicConfig(level=logging.INFO)
 
 class DownloadableContext:
-    def __init__(self, url: str, method: str, extension: str, payload: dict = {}, headers: dict = {}, session: requests.Session = None, worker: int = 1, delay: float = 0.5):
+    def __init__(self, url: str, method: str, extension: str, payload: dict = {}, headers: dict = {}, session: requests.Session = None):
         self.url = url
         self.payload = payload if payload is not None else {}
         self.headers = headers if headers is not None else {}
         self.method = method
         self.session = session
         self.file_extension = extension
-        self.worker = worker
-        self.delay = delay
     
     def get_headers(self, changes: dict = {}) -> dict:
         updated_headers = self.headers.copy()
@@ -261,12 +262,67 @@ class DDLExtractor:
 
 class SiteScraper:
     @staticmethod
-    def steamrip(url: str) -> dict:
-        pass
+    def steamrip(url: str, scraper: UniversalScraper) -> dict:
+        try:
+            page_content = scraper.get_html(url)
+            soup = BeautifulSoup(page_content, 'html.parser')
+            h1_text = soup.h1.string.split("Free Download")
+            
+            name = h1_text[0].strip()
+            version = h1_text[1].strip().removeprefix("(").removesuffix(")")
+            
+            logging.info("Downloader:steamrip Extracting downloadable links")
+            
+            found_links = {}
+            
+            for key, data_ in _download_data["provider_support"].items():
+
+                regex_finder = re.findall(data_["pattern"], page_content)
+                
+                if regex_finder and len(regex_finder) == 1:
+                    found_links[key] = data_["formaturl"].format(detected_link = regex_finder[0])
+                else:
+                    found_links[key] = None
+            
+            logging.info(f"Downloader:steamrip Detected download links: {found_links}")
+            
+            logging.info(f"Downloader:steamrip Generating Filename")
+            
+            return found_links, name, version
+                
+        except Exception as e:
+            logging.error(f"Downloader:steamrip Error fetching the URL: {e}")
+            return {}, "Unknown"
     
     @staticmethod
-    def filmpalast(url: str) -> dict:
-        pass
+    def filmpalast(url):
+        r = requests.get(url)
+        r.raise_for_status()
+        page_content = r.text
+        
+        soup = BeautifulSoup(page_content, 'html.parser')
+        soup.find()
+        
+        found_links = {}
+            
+        for key, data_ in _download_data["provider_support"].items():
+            
+            if key == "voe":
+                link_element = soup.find("a", href=re.compile(r'voe\.sx'))
+                if link_element:
+                    found_links[key] = link_element['href']
+                else:
+                    found_links[key] = None
+                    
+            else:
+                regex_finder = re.findall(data_["pattern"], page_content)
+                
+                if regex_finder and len(regex_finder) == 1:
+                    found_links[key] = data_["formaturl"].format(detected_link = regex_finder[0])
+                else:
+                    found_links[key] = None
+
+        return found_links
 
 _download_data = {
     "site_support": {
@@ -283,7 +339,8 @@ _download_data = {
             "file_ending": "rar",
             "has_compression": True,
             "compression_type": "rar",
-            "extractor": SiteScraper.steamrip
+            "extractor": SiteScraper.steamrip,
+            "need_scraper": True
         },
         "filmpalast": {
             "provider": [
@@ -294,7 +351,8 @@ _download_data = {
             "file_ending": "mp4",
             "has_compression": False,
             "compression_type": "",
-            "extractor": SiteScraper.filmpalast
+            "extractor": SiteScraper.filmpalast,
+            "need_scraper": False
         }
     },
     "provider_support": {
@@ -302,7 +360,8 @@ _download_data = {
             "formaturl": "https://gofile.io/d/{detected_link}",
             "priority": 2,
             "identifier": r"https://gofile\.io/d/(.+)",
-            "enabled": True,
+            "pattern": r'href="//gofile\.io/d/([^"]+)"',
+            "enabled": False,
             "worker": 2,
             "delay": 0.5,
             "ddl": DDLExtractor.gofile
@@ -311,6 +370,7 @@ _download_data = {
             "formaturl": "https://buzzheavier.com/{detected_link}",
             "priority": 1,
             "identifier": r"https://buzzheavier\.com/(.+)",
+            "pattern": r'href="//buzzheavier\.com/([^"]+)"',
             "enabled": True,
             "worker": 5,
             "delay": 0.5,
@@ -320,6 +380,7 @@ _download_data = {
             "formaturl": "https://1fichier.com/?{detected_link}",
             "priority": 7,
             "identifier": r"https://1fichier\.com/\?(.+)",
+            "pattern": r'href="//1fichier\.com/\?([^"]+)"',
             "enabled": True,
             "worker": 1,
             "delay": 0.5,
@@ -329,6 +390,7 @@ _download_data = {
             "formaturl": "https://datanodes.to/{detected_link}",
             "priority": 5,
             "identifier": r"https://datanodes\.to/(.+)",
+            "pattern": r'href="//datanodes\.to/([^"]+)"',
             "enabled": False,
             "worker": 2,
             "delay": 0.5,
@@ -338,6 +400,7 @@ _download_data = {
             "formaturl": "https://megadb.net/{detected_link}",
             "priority": 4,
             "identifier": r"https://megadb\.net/(.+)",
+            "pattern": r'href="//megadb\.net/([^"]+)"',
             "enabled": True,
             "worker": 12,
             "delay": 2,
@@ -347,6 +410,7 @@ _download_data = {
             "formaturl": "https://vikingfile.com/f/{detected_link}",
             "priority": 6,
             "identifier": r"https://vikingfile\.com/(.+)",
+            "pattern": r'href="//vikingfile\.com/([^"]+)"',
             "enabled": True,
             "worker": 0,
             "delay": 0.5,
@@ -357,6 +421,7 @@ _download_data = {
             "formaturl": "https://voe.sx/{detected_link}",
             "priority": 101,
             "identifier": r"https://voe\.sx/(.*)",
+            "pattern": r'href="//voe\.sx/([^"]+)"',
             "enabled": True,
             "worker": 25,
             "delay": 0.5,
@@ -366,6 +431,7 @@ _download_data = {
             "formaturl": "https://veev.to/{detected_link}",
             "priority": 102,
             "identifier": r"https://veev\.to/e/(.*)",
+            "pattern": r'href="//veev\.to/e/([^"]+)"',
             "enabled": False,
             "worker": 0,
             "delay": 0.5,
@@ -375,6 +441,7 @@ _download_data = {
             "formaturl": "https://strmup.to/{detected_link}",
             "priority": 100,
             "identifier": r"https://strmup\.to/(.*)",
+            "pattern": r'href="strmup\.to/([^"]+)"',
             "enabled": False,
             "worker": 0,
             "delay": 0.5,
@@ -390,23 +457,23 @@ class ValidatedUrl:
         self.is_provider = is_provider
 
 class DownloaderData:
-    def __init__(self, data: dict):
+    def __init__(self, data: dict, url):
         self.formaturl = data.get("formaturl")
         self.priority = data.get("priority")
         self.identifier = data.get("identifier")
         self.enabled = data.get("enabled")
         self.worker = data.get("worker")
         self.delay = data.get("delay")
-        self.extract_func = data.get("ddl")
-
-    def extract(self, url: str) -> DownloadableContext:
-        if self.extract_func:
-            ctx = self.extract_func(url)
-            if ctx:
-                ctx.worker = self.worker
-                ctx.delay = self.delay
-            return ctx
-        return None
+        self.extract = data.get("ddl")
+        
+        self.url = url
+        self.data = {}
+    
+    def add_data(self, key, value):
+        self.data[key] = value
+    
+    def get_context(self) -> DownloadableContext:
+        return self.extract(self.url)
 
 class DownloadUtils:
     @staticmethod
@@ -466,13 +533,14 @@ class DownloadUtils:
                 if __best_downloader == None:
                     
                     __best_downloader = _download_data["provider_support"][key]
-                    
+                    url = download_link
                     continue
                 
                 if _download_data["provider_support"][key]["priority"] < __best_downloader["priority"]:
                     __best_downloader = _download_data["provider_support"][key]
+                    url = download_link
         
-        return DownloaderData(__best_downloader) if __best_downloader else None
+        return DownloaderData(__best_downloader, url)
     
     @staticmethod
     def _detect_redirect(response, session, headers={}):
@@ -495,7 +563,7 @@ class DownloadUtils:
 
 class Downloader:
     @staticmethod
-    def get_downloader(url: str) -> DownloaderData:
+    def get_downloader(url: str, scraper: UniversalScraper = None, ignore = []) -> DownloaderData:
         validated = DownloadUtils._validate_url(url)
         
         parrent_key = DownloadUtils._get_parent_key(validated)
@@ -503,46 +571,22 @@ class Downloader:
         if validated.is_provider:
             
             data = _download_data[parrent_key][validated.key]
-            
-            return DownloaderData(data)
+            return DownloaderData(data, url)
         
         data = _download_data[parrent_key][validated.key]
         
         extractor = data.get("extractor")
         
-        dict_data = extractor(url)
+        if data.get("need_scraper"):
+            dict_data, name, version = extractor(url, scraper)
         
-        # If dict_data is already a context (direct extractor), update it with config
-        if isinstance(dict_data, DownloadableContext):
-            dict_data.worker = data.get("worker", 1)
-            dict_data.delay = data.get("delay", 0.5)
-            return dict_data # This breaks signature, Downloader usually returns DownloaderData wrapper
-            # Wait, the original code returned DownloaderData which HAS .extract method.
-            # But here we are calling extractor() directly?
-            # Original code: dict_data = extractor(url) -> returns dict of links for steamrip/filmpalast
+        else:
+            dict_data = extractor(url)
+        
+        best_downloader = DownloadUtils._get_best_downloader(dict_data, ignore = ignore)
+        
+        if data.get("need_scraper"):
+            best_downloader.add_data("name", name)
+            best_downloader.add_data("version", version)
             
-        best_downloader_data = DownloadUtils._get_best_downloader(dict_data)
-        
-        return DownloaderData(best_downloader_data) # This wrapper is what DownloadManager uses.
-        # DownloadManager calls .extract().
-        
-        # We need to ensure the DownloaderData.extract method injects the worker/delay into the Context it returns.
-        
-class DownloaderData:
-    def __init__(self, data: dict):
-        self.formaturl = data.get("formaturl")
-        self.priority = data.get("priority")
-        self.identifier = data.get("identifier")
-        self.enabled = data.get("enabled")
-        self.worker = data.get("worker")
-        self.delay = data.get("delay")
-        self.extract_func = data.get("ddl") # Renamed to avoid confusion with method
-
-    def extract(self, url: str) -> DownloadableContext:
-        if self.extract_func:
-            ctx = self.extract_func(url)
-            if ctx:
-                ctx.worker = self.worker
-                ctx.delay = self.delay
-            return ctx
-        return None
+        return best_downloader
