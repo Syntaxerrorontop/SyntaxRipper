@@ -1169,7 +1169,7 @@ class AsyncDownloadManager:
                 
                 # Final check
                 if not unrar_tool or not os.path.exists(unrar_tool):
-                    self._emit("error", "UnRAR tool not found. Please install WinRAR.")
+                    self._emit("error", "UnRAR tool not found. Please install it in the Settings tab.")
                     return
 
                 unpack_folder = os.path.join(target_dir, item_hash)

@@ -40,17 +40,6 @@ if %errorlevel% neq 0 (
     echo    -> Git is installed.
 )
 
-where unrar >nul 2>nul
-if %errorlevel% neq 0 (
-    echo    -> UnRAR not found. Installing via Winget...
-    winget install RARLab.WinRAR -e --silent --accept-package-agreements --accept-source-agreements
-    if %errorlevel% neq 0 (
-        echo    [!] Failed to install WinRAR/UnRAR. Please install it manually.
-    )
-) else (
-    echo    -> UnRAR is installed.
-)
-
 :: Refresh Env vars (sometimes needed after install)
 call RefreshEnv.cmd >nul 2>nul
 
