@@ -39,6 +39,35 @@ def run_startup_tasks():
     if not programm_info.get("excluded") and programm_info.get("allow_exclusion_request"):
         logger.info("Windows Defender exclusion not set. Run manually if needed.")
 
+    # 5. Initialize Global Playtime
+    initialize_global_playtime()
+
+def initialize_global_playtime():
+    """
+    If global playtime is 0, sums up playtime from all games in games.json
+    and sets the persistent global counter.
+    """
+    try:
+        from .utility_classes import UserConfig
+        user_config = UserConfig(CONFIG_FOLDER, "userconfig.json", quite=True)
+        
+        if user_config.TOTAL_PLAYTIME_GLOBAL == 0:
+            games_json_path = os.path.join(CONFIG_FOLDER, "games.json")
+            if os.path.exists(games_json_path):
+                logger.info("Initializing global playtime from local library...")
+                config_games = load_json(games_json_path)
+                total = 0
+                for info in config_games.values():
+                    if isinstance(info, dict):
+                        total += info.get("playtime", 0)
+                
+                if total > 0:
+                    user_config.TOTAL_PLAYTIME_GLOBAL = int(total)
+                    user_config.save()
+                    logger.info(f"Global playtime initialized to {total}s")
+    except Exception as e:
+        logger.error(f"Failed to initialize global playtime: {e}")
+
 def migrate_legacy_cache():
     """
     Deletes legacy flat cache files (images in root of Cache folder).
