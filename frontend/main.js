@@ -10,8 +10,15 @@ const PYTHON_PORT = 12345;
 
 // --- Config ---
 // Adjust python command if needed (e.g. 'python3' on Mac/Linux)
-const PYTHON_CMD = process.platform === 'win32' ? 'python' : 'python3';
+let PYTHON_CMD = process.platform === 'win32' ? 'python' : 'python3';
 const SERVER_SCRIPT = path.join(__dirname, '../backend/server.py');
+
+// Attempt to use venv python if available (more reliable)
+const VENV_PYTHON = path.join(__dirname, '../backend/venv/Scripts/python.exe');
+if (process.platform === 'win32' && fs.existsSync(VENV_PYTHON)) {
+    console.log("Using Virtual Environment Python:", VENV_PYTHON);
+    PYTHON_CMD = VENV_PYTHON;
+}
 
 function createWindow() {
   const iconPath = path.join(__dirname, 'assets/Syntaxripper.ico');
