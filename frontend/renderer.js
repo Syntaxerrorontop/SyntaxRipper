@@ -1916,7 +1916,36 @@ function updateBPInfo(game) {
     const pt = Number(game.playtime || 0);
     document.getElementById('bp-info-meta').textContent = `${game.platform} • Played: ${(pt / 3600).toFixed(1)}h`;
     document.getElementById('bp-info-img').src = game.poster || '';
-    document.getElementById('bp-launch-btn').onclick = () => launchGame(game.id);
+    document.getElementById('bp-info-rating').textContent = `★ ${game.rating || '0.0'}`;
+    
+    // Strip HTML from description for short preview
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = game.description || "No description available.";
+    document.getElementById('bp-info-desc').textContent = tempDiv.textContent || tempDiv.innerText || "";
+
+    document.getElementById('bp-launch-btn').onclick = () => openBPModal(game);
+}
+
+function openBPModal(game) {
+    const modal = document.getElementById('bp-confirm-modal');
+    document.getElementById('bp-confirm-title').textContent = game.name;
+    document.getElementById('bp-modal-start').onclick = () => {
+        launchGame(game.id);
+        closeBPModal();
+    };
+    modal.style.display = 'flex';
+    // Focus start button
+    setTimeout(() => document.getElementById('bp-modal-start').focus(), 50);
+}
+
+function closeBPModal() {
+    document.getElementById('bp-confirm-modal').style.display = 'none';
+    // Return focus to grid
+    const focused = document.querySelector('.bp-card:focus');
+    if (!focused) {
+        const first = document.querySelector('.bp-card');
+        if (first) first.focus();
+    }
 }
 
 // Init

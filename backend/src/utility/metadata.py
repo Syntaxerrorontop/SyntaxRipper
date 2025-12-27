@@ -67,6 +67,16 @@ class MetadataFetcher:
         
         if cache_key in self.cache:
             data = self.cache[cache_key]
+            
+            # 10-Day Cooldown Check (only if not cached_only)
+            if not cached_only:
+                last_upd = data.get("last_updated", 0)
+                cooldown = 10 * 24 * 3600 # 10 days in seconds
+                if time.time() - last_upd < cooldown:
+                    # Data is fresh enough, check if banner exists to verify basic completeness
+                    if data.get("banner"):
+                        return data
+
             # Check if valid data
             if data.get("banner"):
                 # If cached_only is True, we return whatever we have to keep UI fast
@@ -206,7 +216,8 @@ class MetadataFetcher:
                 "publishers": publishers,
                 "banner": banner_path,
                 "poster": poster_path,
-                "screenshots": screenshots
+                "screenshots": screenshots,
+                "last_updated": time.time()
             }
             
             self.cache[cache_key] = metadata
