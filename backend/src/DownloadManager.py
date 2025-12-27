@@ -1241,6 +1241,9 @@ class AsyncDownloadManager:
                     self._emit("error", f"Unpack failed with code {process.returncode}")
                     return
 
+                # Wait for OS to release file handles
+                time.sleep(2)
+
                 # Library Update Logic
                 self._emit("status", "Updating library...")
                 
@@ -1258,10 +1261,27 @@ class AsyncDownloadManager:
                     final_game_dir = os.path.join(target_dir, item_hash)
                     # We need to temporarily move it out to rename/replace
                     temp_move = os.path.join(target_dir, f"temp_{item_hash}")
-                    shutil.move(rename_path, temp_move)
-                    shutil.rmtree(unpack_folder) # Clean up the extraction root
-                    shutil.move(temp_move, final_game_dir)
                     
+                    # Retry loop for Windows file locking
+                    max_retries = 5
+                    for attempt in range(max_retries):
+                        try:
+                            if os.path.exists(temp_move):
+                                shutil.rmtree(temp_move)
+                            shutil.move(rename_path, temp_move)
+                            
+                            # Success! Now clean up the extraction root and move to final
+                            shutil.rmtree(unpack_folder)
+                            
+                            if os.path.exists(final_game_dir):
+                                shutil.rmtree(final_game_dir)
+                            shutil.move(temp_move, final_game_dir)
+                            break
+                        except OSError as e:
+                            if attempt == max_retries - 1:
+                                raise e
+                            time.sleep(2)
+
                     # Auto-detect EXE
                     exe_path = _game_naming(item_hash, search_path=final_game_dir)
                     
