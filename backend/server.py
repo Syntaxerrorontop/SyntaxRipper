@@ -14,6 +14,7 @@ import threading
 import json
 import re
 import urllib.parse
+import queue
 from contextlib import asynccontextmanager
 
 # Force UTF-8 for stdout/stderr to handle emojis on Windows
@@ -72,9 +73,10 @@ parent_pid = None
 loop = None
 scraper_ready = False
 active_games = {} # {game_id: GameInstance}
+metadata_queue = queue.Queue()
 
 def run_metadata_scan():
-    """Background task to fetch metadata for all games."""
+    """Background task to queue metadata fetch for all games."""
     if not metadata_fetcher:
         logger.warning("Metadata fetcher not initialized.")
         return
@@ -83,7 +85,7 @@ def run_metadata_scan():
         logger.info("No RAWG API Key found. Metadata scan skipped.")
         return
     
-    logger.info("Starting metadata background scan...")
+    logger.info("Queuing metadata background scan...")
     names_to_scan = set()
     
     try:
@@ -93,39 +95,44 @@ def run_metadata_scan():
             for info in config_games.values():
                 name = info.get("name") or info.get("alias")
                 if name: names_to_scan.add(name)
-            logger.info(f"Added {len(names_to_scan)} local games to scan queue.")
     except Exception as e:
         logger.error(f"Error reading games config for scan: {e}")
     
     try:
         scanner = ExternalLibraryScanner()
         ext_games = scanner.scan()
-        prev_count = len(names_to_scan)
         for g in ext_games:
             names_to_scan.add(g["name"])
-        logger.info(f"Added {len(names_to_scan) - prev_count} external games to scan queue.")
     except Exception as e:
         logger.error(f"Error scanning external libraries: {e}")
     
     logger.info(f"Found {len(names_to_scan)} unique games to check for metadata.")
     
-    count = 0
-    updated_count = 0
     for name in names_to_scan:
+        metadata_queue.put(name)
+
+def metadata_worker():
+    """Worker thread that processes the metadata queue."""
+    logger.info("Metadata worker started.")
+    while True:
         try:
-            # logger.debug(f"Scanning metadata for: {name}")
-            # get_metadata will check cache/folder existence and fetch if missing
-            data = metadata_fetcher.get_metadata(name)
-            if data:
-                updated_count += 1
-        except Exception as e:
-            logger.error(f"Failed to scan metadata for {name}: {e}")
+            game_name = metadata_queue.get()
+            if game_name is None: break # Sentinel
             
-        time.sleep(0.5) # Rate limit: 2 requests/s (Safe)
-        
-    logger.info(f"Metadata scan complete. Checked {len(names_to_scan)} games.")
-    if updated_count > 0:
-        broadcast_event("complete", {"message": f"Metadata updated for {updated_count} games"})
+            # Check if metadata fetcher is ready
+            if metadata_fetcher and metadata_fetcher.api_key:
+                # Fetch (blocking)
+                data = metadata_fetcher.get_metadata(game_name, cached_only=False)
+                if data:
+                    # Notify frontend to refresh library (or specific game if we add that logic)
+                    broadcast_event("complete", {"message": f"Metadata updated for {game_name}"})
+            
+            metadata_queue.task_done()
+            time.sleep(1.0) # Rate limit to avoid hitting API limits
+            
+        except Exception as e:
+            logger.error(f"Metadata worker error: {e}")
+            time.sleep(1)
 
 def check_updates_task():
     """Background task to check for game updates."""
@@ -325,6 +332,9 @@ async def lifespan(app: FastAPI):
         threading.Thread(target=run_metadata_scan, daemon=True).start()
     else:
         logger.warning("RAWG API Key is missing! Metadata will not be fetched.")
+
+    # 5.5 Start Metadata Worker
+    threading.Thread(target=metadata_worker, daemon=True).start()
 
     # 6. Start Scraper Warmup
     threading.Thread(target=init_scraper_background, daemon=True).start()
@@ -1475,10 +1485,10 @@ async def get_library():
         nonlocal logged_posters
         try:
             if metadata_fetcher:
-                # Look up by name in cache
+                # Look up by name in cache (non-blocking)
                 key = game_obj["name"].lower().strip()
-                # This triggers re-fetch if missing/incomplete per updated logic
-                meta = metadata_fetcher.get_metadata(game_obj["name"]) 
+                meta = metadata_fetcher.get_metadata(game_obj["name"], cached_only=True)
+                
                 if meta:
                     # Merge all metadata fields
                     for k, v in meta.items():
@@ -1495,6 +1505,10 @@ async def get_library():
                     if logged_posters < 5:
                         # logger.info(f"Assigned poster for {game_obj['name']}: {game_obj['poster']}")
                         logged_posters += 1
+                else:
+                    # Not in cache, queue for background fetch
+                    if metadata_fetcher.api_key:
+                        metadata_queue.put(game_obj["name"])
             
             # Detect Theme Music
             if "path" in game_obj and os.path.exists(game_obj["path"]):

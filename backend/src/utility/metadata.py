@@ -47,11 +47,15 @@ class MetadataFetcher:
             logger.warning(f"Failed to download asset {url}: {e}")
         return ""
 
-    def get_metadata(self, game_name):
+    def get_metadata(self, game_name, cached_only=False):
         """
         Retrieves metadata for a game.
         Checks cache first. If missing and API key exists, fetches from RAWG.
         Downloads assets to local cache folder (hashed name).
+        
+        Args:
+            game_name (str): Name of the game
+            cached_only (bool): If True, returns None if not in cache (skips network).
         """
         # Normalize name
         norm_name = game_name.lower().strip()
@@ -76,8 +80,12 @@ class MetadataFetcher:
                     # logger.debug(f"Cache valid for {game_name}: {len(files_in_dir)} files")
                     return data
                 else:
-                    logger.info(f"Cache incomplete for '{game_name}' (Files: {len(files_in_dir)}, Screenshots: {len(data.get('screenshots', []))}). Re-fetching.")
+                    if not cached_only:
+                        logger.info(f"Cache incomplete for '{game_name}' (Files: {len(files_in_dir)}, Screenshots: {len(data.get('screenshots', []))}). Re-fetching.")
         
+        if cached_only:
+            return None
+
         if not self.api_key:
             return None
 
