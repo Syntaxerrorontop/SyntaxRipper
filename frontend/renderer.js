@@ -395,22 +395,42 @@ async function removeGamePath(index) {
 
 async function changeDownloadPath() {
     const path = await ipcRenderer.invoke('select-folder');
-    if (path) { currentSettings.download_path = path; await saveSettings(); }
+    if (path) { 
+        currentSettings.download_path = path; 
+        const el = document.getElementById('downloadPathInput');
+        if (el) el.value = path;
+        await saveSettings(); 
+    }
 }
 
 async function changeDownloadCachePath() {
     const path = await ipcRenderer.invoke('select-folder');
-    if (path) { currentSettings.download_cache_path = path; await saveSettings(); }
+    if (path) { 
+        currentSettings.download_cache_path = path; 
+        const el = document.getElementById('downloadCachePathInput');
+        if (el) el.value = path;
+        await saveSettings(); 
+    }
 }
 
 async function changeInstalledGamesPath() {
     const path = await ipcRenderer.invoke('select-folder');
-    if (path) { currentSettings.installed_games_path = path; await saveSettings(); }
+    if (path) { 
+        currentSettings.installed_games_path = path; 
+        const el = document.getElementById('installedGamesPathInput');
+        if (el) el.value = path;
+        await saveSettings(); 
+    }
 }
 
 async function changeMediaOutputPath() {
     const path = await ipcRenderer.invoke('select-folder');
-    if (path) { currentSettings.media_output_path = path; await saveSettings(); }
+    if (path) { 
+        currentSettings.media_output_path = path; 
+        const el = document.getElementById('mediaOutputPathInput');
+        if (el) el.value = path;
+        await saveSettings(); 
+    }
 }
 
 async function openPath(path) {
