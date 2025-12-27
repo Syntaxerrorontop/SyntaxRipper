@@ -1662,7 +1662,8 @@ document.addEventListener('keydown', (e) => {
 });
 
 function pollGamepad() {
-    if (gamepadIndex === null || !currentSettings.controller_support) return;
+    // Controller always works in Big Picture mode, or if enabled in settings
+    if (gamepadIndex === null || (!currentSettings.controller_support && !bigPictureActive)) return;
     const gp = navigator.getGamepads()[gamepadIndex];
     if (!gp) return;
 
@@ -1675,6 +1676,7 @@ function pollGamepad() {
     const left = gp.buttons[14].pressed || gp.axes[0] < -0.5;
     const right = gp.buttons[15].pressed || gp.axes[0] > 0.5;
     const aBtn = gp.buttons[0].pressed;
+    const bBtn = gp.buttons[1].pressed; // Standard "Back" button
 
     if (up) { handleNav('up'); lastMoveTime = now; }
     else if (down) { handleNav('down'); lastMoveTime = now; }
@@ -1683,6 +1685,22 @@ function pollGamepad() {
     else if (aBtn) { 
         if (document.activeElement) document.activeElement.click(); 
         lastMoveTime = now + 200; 
+    }
+    else if (bBtn) {
+        // Universal Back logic
+        const bpModal = document.getElementById('bp-confirm-modal');
+        if (bpModal && bpModal.style.display === 'flex') {
+            closeBPModal();
+        } else if (bigPictureActive) {
+            toggleBigPicture();
+        } else {
+            // Close standard modals if open
+            const modal = document.getElementById('modal-overlay');
+            if (modal && modal.style.display === 'flex') {
+                modal.style.display = 'none';
+            }
+        }
+        lastMoveTime = now + 200;
     }
 }
 
