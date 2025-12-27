@@ -69,19 +69,20 @@ class MetadataFetcher:
             data = self.cache[cache_key]
             # Check if valid data
             if data.get("banner"):
-                # VALIDATION: Ensure physical assets exist AND screenshots are present in data
-                # Strict check: Must have at least 3 files (Banner, Poster, +1 Screenshot)
-                # and at least 1 screenshot in metadata.
+                # If cached_only is True, we return whatever we have to keep UI fast
+                if cached_only:
+                    return data
+
+                # VALIDATION (only for non-cached_only calls): 
+                # Ensure physical assets exist AND screenshots are present in data
                 files_in_dir = os.listdir(game_cache_dir) if os.path.exists(game_cache_dir) else []
                 has_enough_files = len(files_in_dir) >= 3
                 has_screenshots_data = isinstance(data.get("screenshots"), list) and len(data["screenshots"]) > 0
                 
                 if has_enough_files and has_screenshots_data:
-                    # logger.debug(f"Cache valid for {game_name}: {len(files_in_dir)} files")
                     return data
                 else:
-                    if not cached_only:
-                        logger.info(f"Cache incomplete for '{game_name}' (Files: {len(files_in_dir)}, Screenshots: {len(data.get('screenshots', []))}). Re-fetching.")
+                    logger.info(f"Cache incomplete for '{game_name}' (Files: {len(files_in_dir)}, Screenshots: {len(data.get('screenshots', []))}). Re-fetching.")
         
         if cached_only:
             return None

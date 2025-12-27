@@ -74,6 +74,7 @@ loop = None
 scraper_ready = False
 active_games = {} # {game_id: GameInstance}
 metadata_queue = queue.Queue()
+queued_metadata = set()
 
 def run_metadata_scan():
     """Background task to queue metadata fetch for all games."""
@@ -127,6 +128,8 @@ def metadata_worker():
                     # Notify frontend to refresh library (or specific game if we add that logic)
                     broadcast_event("complete", {"message": f"Metadata updated for {game_name}"})
             
+            if game_name in queued_metadata:
+                queued_metadata.remove(game_name)
             metadata_queue.task_done()
             time.sleep(1.0) # Rate limit to avoid hitting API limits
             
@@ -1561,7 +1564,8 @@ async def get_library():
                         logged_posters += 1
                 else:
                     # Not in cache, queue for background fetch
-                    if metadata_fetcher.api_key:
+                    if metadata_fetcher.api_key and game_obj["name"] not in queued_metadata:
+                        queued_metadata.add(game_obj["name"])
                         metadata_queue.put(game_obj["name"])
             
             # Detect Theme Music
