@@ -39,9 +39,11 @@ SyntaxRipper is a high-performance, modern Game Manager and Launcher built with 
 
 ### ⚡ System Integration
 *   **Gaming Mode:** Automatically optimizes your PC for gaming by switching to the "High Performance" power plan and boosting the process priority of the active game.
+*   **Big Picture Mode:** A dedicated, fullscreen interface optimized for controllers and 10-foot viewing. Perfect for Steam Deck-like experiences or TV setups.
+*   **Windows Sandbox Launcher:** Securely launch untrusted games within an isolated Windows Sandbox environment. Protects your host system from potential threats (Zero Trust approach).
 *   **Discord Rich Presence:** Share your current game and playtime on your Discord profile automatically.
 *   **Real-Debrid Integration:** Connect your Real-Debrid account to unlock premium speeds for supported file hosts within the internal download manager.
-*   **Full Controller Support:** Navigate the entire application using Xbox or PlayStation controllers, perfect for couch gaming setups.
+*   **Full Controller Support:** Navigate the entire application using Xbox or PlayStation controllers.
 
 ---
 
@@ -51,25 +53,16 @@ SyntaxRipper uses a decoupled client-server architecture:
 
 *   **Backend:** Powered by **FastAPI (Python)**. It handles all heavy lifting, including file system operations, web scraping (Selenium/undetected-chromedriver), download management, and system optimizations.
 *   **Frontend:** A sleek, reactive interface built with **HTML5/CSS3/JavaScript** and hosted within **Electron**.
-*   **Communication:** Real-time updates (download progress, metadata status) are pushed from the backend to the frontend via **WebSockets**.
-*   **Data Storage:** All user configuration, library data, and metadata caches are stored locally in the standard Windows `%APPDATA%\SyntaxRipper` folder, ensuring your main application directory remains clean.
+*   **Portable Mode:** Can be run entirely from a single folder (including all configs, caches, and game installs) by placing a `portable.mode` file in the root directory.
 
 ---
 
 ## 📥 Installation & Setup
 
-1.  **Clone the Repository:**
-    ```bash
-    git clone https://github.com/Syntaxerrorontop/SyntaxRipper.git
-    cd SyntaxRipper
-    ```
-2.  **Run the Installer:**
-    Double-click **`install.bat`**. This script will:
-    *   Verify and install Python 3.11+ and Git via Winget if missing.
-    *   Create a dedicated Python Virtual Environment (`venv`).
-    *   Install all required dependencies (FastAPI, Selenium, etc.).
-    *   Setup the Electron frontend.
-    *   Create a shortcut in your Start Menu.
+1.  **Standard Installation:**
+    Double-click **`install.bat`**. This sets up the application in your `AppData` and creates a Start Menu shortcut.
+2.  **Portable Installation:**
+    Double-click **`install_portable.bat`**. Everything (including configs, cache, and downloaded games) will stay within the current directory. Perfect for USB drives.
 
 ---
 

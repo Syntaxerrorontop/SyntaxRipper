@@ -1,8 +1,14 @@
 import os
 
-# Use the standard Windows AppData/Roaming folder for internal data
-# This matches the path: C:\Users\<User>\AppData\Roaming\SyntaxRipper
-APPDATA_CACHE_PATH = os.path.join(os.getenv('APPDATA'), "SyntaxRipper")
+# Root Directory (v3/)
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+PORTABLE_MODE = os.path.exists(os.path.join(PROJECT_ROOT, "portable.mode"))
+
+# Use local 'Data' folder if in portable mode, otherwise standard AppData
+if PORTABLE_MODE:
+    APPDATA_CACHE_PATH = os.path.join(PROJECT_ROOT, "Data")
+else:
+    APPDATA_CACHE_PATH = os.path.join(os.getenv('APPDATA'), "SyntaxRipper")
 
 if not os.path.exists(APPDATA_CACHE_PATH):
     os.makedirs(APPDATA_CACHE_PATH)
@@ -21,7 +27,7 @@ if not os.path.exists(ASSET_FOLDER):
 
 # Version
 try:
-    with open(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "version.txt"), "r") as f:
+    with open(os.path.join(PROJECT_ROOT, "version.txt"), "r") as f:
         APP_VERSION = f.read().strip()
 except:
     APP_VERSION = "3.0.0"

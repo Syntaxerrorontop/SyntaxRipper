@@ -511,14 +511,43 @@
             <span class="nav-icon">👤</span>
             <span class="nav-text">Profile</span>
         </div>
-        <div class="nav-item" onclick="selectRandomGame()" title="Random Game" style="margin-top: auto; margin-bottom: 20px;">
+        <div class="nav-item" onclick="selectRandomGame()" title="Random Game" style="margin-top: auto;">
             <span class="nav-icon">🎲</span>
             <span class="nav-text">Random</span>
+        </div>
+        <div class="nav-item" onclick="toggleBigPicture()" title="Big Picture Mode" style="margin-bottom: 20px; color: gold;">
+            <span class="nav-icon">📺</span>
+            <span class="nav-text">Big Picture</span>
         </div>
     </nav>
 
     <div id="main-container">
         <div id="content">
+            <!-- Big Picture View -->
+            <div id="view-bigpicture" class="view" style="background: linear-gradient(135deg, #000428 0%, #004e92 100%); z-index: 1000; position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none;">
+                <div style="padding: 40px; height: 100%; display: flex; flex-direction: column;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">
+                        <h1 style="font-size: 48px; margin: 0; text-shadow: 0 4px 10px rgba(0,0,0,0.5);">Big Picture</h1>
+                        <button class="btn btn-danger" onclick="toggleBigPicture()" style="font-size: 20px;">Exit Mode</button>
+                    </div>
+                    
+                    <div id="bp-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 30px; overflow-y: auto; flex: 1; padding: 20px;">
+                        <!-- JS generated grid -->
+                    </div>
+
+                    <div id="bp-selection-info" style="height: 150px; background: rgba(0,0,0,0.6); margin-top: 20px; border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 30px; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px);">
+                        <img id="bp-info-img" src="" style="height: 110px; border-radius: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+                        <div>
+                            <h2 id="bp-info-title" style="margin: 0 0 5px 0; font-size: 32px;">Game Title</h2>
+                            <p id="bp-info-meta" style="margin: 0; color: #aaa; font-size: 18px;">Platform • Playtime</p>
+                        </div>
+                        <div style="margin-left: auto;">
+                            <button class="btn btn-primary" id="bp-launch-btn" style="font-size: 24px; padding: 15px 50px;">PLAY</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Library View (Tree) -->
             <div id="view-library" class="view active">
                 <div id="library-layout">

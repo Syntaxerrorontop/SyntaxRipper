@@ -1,6 +1,7 @@
 import logging, os, json
 
 from .utility_functions import load_json, save_json
+from .utility_vars import PROJECT_ROOT, PORTABLE_MODE
 
 class Payload:
     def __init__(self):
@@ -104,8 +105,13 @@ class File:
 class UserConfig:
     def __init__(self, in_path, filename, quite=False):
         
-        # Define the Documents folder path for large files
-        doc_path = os.path.join(os.path.expanduser("~"), "Documents", "SyntaxRipper")
+        # Define the path for large files (Games, Downloads, etc.)
+        if PORTABLE_MODE:
+            # Portable: Everything stays in the project folder
+            doc_path = PROJECT_ROOT
+        else:
+            # Standard: Use Documents folder
+            doc_path = os.path.join(os.path.expanduser("~"), "Documents", "SyntaxRipper")
         
         default_data = {
             "install_commen_redist": True, 

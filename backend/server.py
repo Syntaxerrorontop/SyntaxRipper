@@ -1362,6 +1362,60 @@ async def run_game_setup(game_id: str):
 
     raise HTTPException(status_code=404, detail="No setup file or ISO found.")
 
+@app.post("/api/game/{game_id}/sandbox")
+async def launch_in_sandbox(game_id: str):
+    """Generates a Windows Sandbox configuration and launches the game inside it."""
+    config_games = load_json(os.path.join(CONFIG_FOLDER, "games.json"))
+    if game_id not in config_games:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    info = config_games[game_id]
+    game_folder = _get_game_path(info, game_id)
+    if not game_folder or not os.path.exists(game_folder):
+        raise HTTPException(status_code=400, detail="Game directory not found")
+
+    # Determine executable relative to the mapped folder
+    exe_path = info.get("exe", "")
+    if exe_path and os.path.isabs(exe_path):
+        exe_rel_path = os.path.relpath(exe_path, game_folder)
+    else:
+        exe_rel_path = exe_path
+
+    # Check if Sandbox is available
+    try:
+        # Check registry or where command
+        import subprocess
+        res = subprocess.run(["where", "WindowsSandbox.exe"], capture_output=True, text=True)
+        if res.returncode != 0:
+            raise HTTPException(status_code=400, detail="Windows Sandbox not found. Please enable it in 'Turn Windows features on or off'.")
+    except:
+        pass
+
+    # Create .wsb content
+    # We map the game folder to C:\Game inside the sandbox
+    wsb_content = f"""<Configuration>
+<MappedFolders>
+  <MappedFolder>
+    <HostFolder>{os.path.abspath(game_folder)}</HostFolder>
+    <SandboxFolder>C:\\Game</SandboxFolder>
+    <ReadOnly>false</ReadOnly>
+  </MappedFolder>
+</MappedFolders>
+<LogonCommand>
+  <Command>C:\\Game\\{exe_rel_path}</Command>
+</LogonCommand>
+</Configuration>"""
+
+    wsb_path = os.path.join(CACHE_FOLDER, f"{game_id}_sandbox.wsb")
+    with open(wsb_path, "w") as f:
+        f.write(wsb_content)
+
+    try:
+        os.startfile(wsb_path)
+        return {"status": "sandbox_launched", "warning": "Saves and data changes inside the sandbox will NOT be persisted to your real system."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start Windows Sandbox: {e}")
+
 @app.post("/api/launch/{game_id}")
 async def launch_game(game_id: str):
     user_config = UserConfig(CONFIG_FOLDER, "userconfig.json")

@@ -1182,6 +1182,23 @@ function showDetails(gameId) {
         };
         actions.appendChild(setupBtn);
 
+        // Sandbox Button
+        const sandboxBtn = document.createElement('button');
+        sandboxBtn.className = 'btn btn-secondary';
+        sandboxBtn.style.marginLeft = '10px';
+        sandboxBtn.innerHTML = '🛡️ Sandbox';
+        sandboxBtn.onclick = async () => {
+            if (await showConfirm("Launch in Sandbox", "WARNING: Saves will NOT be saved to your PC. Continue?", false)) {
+                try {
+                    const res = await fetch(`${API_URL}/api/game/${game.id}/sandbox`, { method: 'POST' });
+                    const data = await res.json();
+                    if (res.ok) showToast("Sandbox launched!", "success");
+                    else showAlert("Sandbox Error", data.detail);
+                } catch(e) { showToast(e.message, "error"); }
+            }
+        };
+        actions.appendChild(sandboxBtn);
+
         if (!game.id.startsWith("ext_")) {
             const fbtn = document.createElement('button'); fbtn.className = 'btn btn-secondary'; fbtn.textContent = 'Folder'; fbtn.onclick = () => openFolder(game.id); actions.appendChild(fbtn);
             const ubtn = document.createElement('button'); ubtn.className = 'btn btn-danger'; ubtn.textContent = 'Uninstall'; ubtn.style.marginLeft = '10px';
@@ -1846,6 +1863,77 @@ renderTree = function(filter) {
     originalRenderTree(filter);
     updateTabIndices();
 };
+
+let bigPictureActive = false;
+
+function toggleBigPicture() {
+    const view = document.getElementById('view-bigpicture');
+    bigPictureActive = !bigPictureActive;
+    
+    if (bigPictureActive) {
+        view.style.display = 'block';
+        renderBigPictureGrid();
+        // Force focus first item
+        setTimeout(() => {
+            const first = document.querySelector('.bp-card');
+            if (first) first.focus();
+        }, 100);
+    } else {
+        view.style.display = 'none';
+    }
+}
+
+function renderBigPictureGrid() {
+    const grid = document.getElementById('bp-grid');
+    grid.innerHTML = '';
+    
+    // Only show installed games in Big Picture
+    const games = libraryData.filter(g => g.installed && !g.hidden);
+    
+    games.forEach(game => {
+        const card = document.createElement('div');
+        card.className = 'bp-card';
+        card.tabIndex = 0;
+        card.style.cssText = `
+            aspect-ratio: 2/3; 
+            background: #252526; 
+            border-radius: 12px; 
+            overflow: hidden; 
+            cursor: pointer; 
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border: 3px solid transparent;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        `;
+        
+        const posterUrl = game.poster || 'https://via.placeholder.com/300x450?text=No+Poster';
+        card.innerHTML = `<img src="${posterUrl}" style="width:100%; height:100%; object-fit:cover;">`;
+        
+        card.onfocus = () => {
+            card.style.transform = 'scale(1.1)';
+            card.style.borderColor = 'var(--accent-color)';
+            card.style.boxShadow = '0 10px 30px rgba(0, 122, 204, 0.5)';
+            updateBPInfo(game);
+        };
+        
+        card.onblur = () => {
+            card.style.transform = 'scale(1)';
+            card.style.borderColor = 'transparent';
+            card.style.boxShadow = '0 4px 15px rgba(0,0,0,0.3)';
+        };
+        
+        card.onclick = () => launchGame(game.id);
+        
+        grid.appendChild(card);
+    });
+}
+
+function updateBPInfo(game) {
+    document.getElementById('bp-info-title').textContent = game.name;
+    const pt = Number(game.playtime || 0);
+    document.getElementById('bp-info-meta').textContent = `${game.platform} • Played: ${(pt / 3600).toFixed(1)}h`;
+    document.getElementById('bp-info-img').src = game.poster || '';
+    document.getElementById('bp-launch-btn').onclick = () => launchGame(game.id);
+}
 
 // Init
 connectWebSocket();
