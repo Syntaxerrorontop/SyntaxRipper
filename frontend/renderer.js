@@ -1729,6 +1729,7 @@ function handleNav(dir) {
     const isDetail = document.getElementById('details-panel').contains(active);
     const isSearch = active.classList.contains('search-result-item') || active.id === 'searchInput' || active.id === 'searchCategory';
     const isSettings = active.closest('.settings-card') || active.closest('.simple-header');
+    const isBigPicture = active.classList.contains('bp-card') || active.id === 'bp-launch-btn' || active.closest('#view-bigpicture');
 
     if (isSidebar) {
         if (dir === 'up' || dir === 'down') moveFocusSibling(active, dir);
@@ -1740,6 +1741,9 @@ function handleNav(dir) {
             else if (activeView === 'view-settings') document.querySelector('#view-settings input').focus();
         }
     } 
+    else if (isBigPicture) {
+        moveFocusSibling(active, dir);
+    }
     else if (isTree) {
         if (dir === 'up' || dir === 'down') moveFocusSibling(active, dir);
         else if (dir === 'left') focusSidebar();
