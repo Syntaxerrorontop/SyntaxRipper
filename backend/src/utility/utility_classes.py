@@ -69,32 +69,34 @@ class Header:
 
 class File:
     @staticmethod
-    def check_existence(in_path, file_name, create = True, add_conten = "", use_json = False, quite=False) -> bool:
-        if not quite:
+    def check_existence(in_path, file_name, create=True, add_content="", use_json=False, quiet=False) -> bool:
+        if not quiet:
             logging.debug(f"Checking {file_name} existence in {in_path}.")
 
-        if not file_name in os.listdir(in_path):
-            if not quite:
+        full_path = os.path.join(in_path, file_name)
+        
+        if not os.path.exists(full_path):
+            if not quiet:
                 logging.debug(f"File not found")
-            with open(os.path.join(in_path, file_name), "w") as file:
-                file.close()
-                if not quite:
-                    logging.debug(f"File created: {create} {file_name}")
-                
-                if add_conten != "":
-                    with open(os.path.join(in_path, file_name), "w") as file:
-                        if use_json:
-                            json.dump(add_conten, file, indent=4)
-                        else:
-                            file.write(add_conten)
-                        file.close()
-                    if not quite:
-                        logging.debug(f"Added content to {file_name}")
-                
-                return True
             
-            return False
-        if not quite:
+            # Create file with content if provided
+            with open(full_path, "w", encoding="utf-8") as file:
+                if add_content != "":
+                    if use_json:
+                        json.dump(add_content, file, indent=4)
+                    else:
+                        file.write(add_content)
+                    if not quiet:
+                        logging.debug(f"Added content to {file_name}")
+                else:
+                    pass # Just create empty file
+                    
+            if not quiet:
+                logging.debug(f"File created: {create} {file_name}")
+            
+            return True
+        
+        if not quiet:
             logging.debug("File already exists")
         
         return True
@@ -134,7 +136,7 @@ class UserConfig:
             "total_playtime_global": 0
         }
         
-        File.check_existence(in_path, filename, add_conten=default_data, use_json=True, quite=quite)
+        File.check_existence(in_path, filename, add_content=default_data, use_json=True, quiet=quite)
         
         self._path = os.path.join(in_path, filename)
         self._data = load_json(self._path)
