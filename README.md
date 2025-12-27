@@ -1,18 +1,16 @@
 # SyntaxRipper V3
 
-SyntaxRipper is a modern, feature-rich Game Manager and Launcher designed to organize your local game library with a sleek user interface. It provides advanced tools for managing game files, tracking playtime, and optimizing your system for gaming.
+> **DISCLAIMER:** This project is a proof-of-concept created for **research and educational purposes only**. It is intended to demonstrate automation and UI design patterns. The author provides no warranty and assumes no liability for how this code is used.
 
-## ⚠️ Legal Disclaimer
+## ⚠️ MANDATORY LEGAL NOTICE & PROHIBITED USE
 
-**Please read carefully before using this software.**
+**Please read this carefully. By accessing or using this code, you agree to these terms.**
 
-*   **Educational Purpose Only:** This project is created solely for educational and organizational purposes.
-*   **No Piracy Support:** The author (`Syntaxerrorontop`) and contributors do not support, condone, or encourage software piracy.
-*   **No Content Hosting:** This application does **not** host, distribute, or provide direct access to any copyrighted files, games, or media. All game files must be legally owned by the user.
-*   **User Responsibility:** Any use of this software to infringe upon intellectual property rights is strictly prohibited. The user assumes full responsibility for their actions and for complying with all applicable laws in their jurisdiction.
-*   **External Sources:** Any external links or search functionality provided by scripts are for informational purposes only. The application acts as a browser/interface and has no control over third-party content.
-
-**By using this software, you agree that you are using it at your own risk and in compliance with these terms.**
+1.  **Educational Purpose Only:** This repository exists solely to showcase coding techniques, library management logic, and system integration. It is not intended to be used as a tool for acquiring media.
+2.  **STRICTLY NO UNAUTHORIZED DOWNLOADS:** This software **must NOT** be used to download, stream, or distribute any copyrighted material without the express permission of the original creator or rights holder. 
+3.  **User Accountability:** The author (`Syntaxerrorontop`) does not host any content, does not provide links to copyrighted media, and does not condone piracy in any form. The user is 100% responsible for their own actions and any legal consequences resulting from the misuse of this code.
+4.  **No Piracy Support:** If you intend to use this software for any illegal activity, including the infringement of intellectual property rights, you are strictly prohibited from using this code.
+5.  **Tool Purpose:** The built-in downloader is a generic HTTP client designed for fetching open-source assets, personal backups, or self-hosted files only.
 
 ---
 
