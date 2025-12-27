@@ -1888,24 +1888,31 @@ function renderBigPictureGrid() {
     const grid = document.getElementById('bp-grid');
     grid.innerHTML = '';
     
-    // Only show installed games in Big Picture
-    const games = libraryData.filter(g => g.installed && !g.hidden);
+    // Show all non-hidden games in Big Picture
+    const games = libraryData.filter(g => !g.hidden);
     
     games.forEach(game => {
         const card = document.createElement('div');
-        card.className = 'bp-card';
+        card.className = `bp-card ${game.installed ? 'installed' : 'uninstalled'}`;
         card.tabIndex = 0;
         
+        // Add a visual indicator if not installed
         const posterUrl = game.poster || 'https://via.placeholder.com/300x450?text=No+Poster';
-        card.innerHTML = `<img src="${posterUrl}" style="width:100%; height:100%; object-fit:cover; pointer-events: none;">`;
+        let innerHTML = `<img src="${posterUrl}" style="width:100%; height:100%; object-fit:cover; pointer-events: none; ${game.installed ? '' : 'opacity: 0.5; filter: grayscale(50%);'}">`;
+        
+        if (!game.installed) {
+            innerHTML += `<div style="position:absolute; bottom:10px; right:10px; background:rgba(0,0,0,0.7); color:white; padding:4px 8px; border-radius:4px; font-size:10px; font-weight:bold; border:1px solid #555;">NOT INSTALLED</div>`;
+        }
+
+        card.innerHTML = innerHTML;
         
         card.onfocus = () => {
             updateBPInfo(game);
-            // Smoothly scroll focused card into view if needed
             card.scrollIntoView({ behavior: 'smooth', block: 'center' });
         };
         
-        card.onclick = () => launchGame(game.id);
+        // Click (or Enter) now opens the confirmation modal
+        card.onclick = () => openBPModal(game);
         
         grid.appendChild(card);
     });
@@ -1929,13 +1936,31 @@ function updateBPInfo(game) {
 function openBPModal(game) {
     const modal = document.getElementById('bp-confirm-modal');
     document.getElementById('bp-confirm-title').textContent = game.name;
-    document.getElementById('bp-modal-start').onclick = () => {
-        launchGame(game.id);
-        closeBPModal();
-    };
+    const startBtn = document.getElementById('bp-modal-start');
+    const banner = document.getElementById('bp-modal-banner');
+    
+    if (banner) {
+        banner.style.backgroundImage = `url('${game.banner || game.poster || ''}')`;
+    }
+    
+    if (game.installed) {
+        startBtn.textContent = 'START';
+        startBtn.onclick = () => {
+            launchGame(game.id);
+            closeBPModal();
+        };
+    } else {
+        startBtn.textContent = 'INSTALL';
+        startBtn.onclick = () => {
+            startDownload(game.link || '', game.name);
+            closeBPModal();
+            toggleBigPicture(); // Exit BP to show download progress
+        };
+    }
+
     modal.style.display = 'flex';
-    // Focus start button
-    setTimeout(() => document.getElementById('bp-modal-start').focus(), 50);
+    // Focus the action button
+    setTimeout(() => startBtn.focus(), 50);
 }
 
 function closeBPModal() {
