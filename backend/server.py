@@ -997,12 +997,8 @@ async def search(request: SearchRequest):
             # Priority 2: Substring match
             elif query in name_lower:
                 score = 1.0
-            # Priority 3: Fuzzy match
-            else:
-                score = difflib.SequenceMatcher(None, query, name_lower).ratio()
             
-            # Threshold (0.4 is lenient enough for "minecraf" -> "Minecraft")
-            if score > 0.4:
+            if score > 0:
                 full_url = url if url.startswith("http") else "https://steamrip.com" + url
                 results_with_scores.append({
                     "title": name,

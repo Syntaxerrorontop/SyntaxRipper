@@ -76,11 +76,11 @@ class DirectLinkDownloader:
     @staticmethod
     def voe(url) -> dict:
         session = requests.Session()
-        response = session.get(url)
+        response = session.get(url, timeout=30)
         response, current_url = detect_redir(response, session)
 
         download_url = current_url.rstrip('/') + "/download"
-        response = session.get(download_url)
+        response = session.get(download_url, timeout=30)
 
         response, final_url = detect_redir(response, session)
         soup = BeautifulSoup(response.text, 'html.parser')
@@ -189,13 +189,13 @@ class DirectLinkDownloader:
         }
 
         try:
-            r_main = session.get(url, headers=headers)
+            r_main = session.get(url, headers=headers, timeout=30)
             r_main.raise_for_status()
             
             download_endpoint = url.rstrip('/') + "/download"
             headers["HX-Request"] = "true"
             
-            r_trigger = session.get(download_endpoint, headers=headers, allow_redirects=False)
+            r_trigger = session.get(download_endpoint, headers=headers, allow_redirects=False, timeout=30)
             direct_link = r_trigger.headers.get("hx-redirect") or r_trigger.headers.get("Location")
             
             return {"url": direct_link, "payload": {}, "headers": {}, "method": "get", "session": session}
@@ -214,7 +214,7 @@ class DirectLinkDownloader:
 
         logging.info(f"Analyzing 1Fichier: {url}")
         try:
-            response = session.get(url, headers=headers)
+            response = session.get(url, headers=headers, timeout=30)
             response.raise_for_status()
             soup = BeautifulSoup(response.text, 'html.parser')
 
@@ -233,7 +233,7 @@ class DirectLinkDownloader:
             time.sleep(62)
 
             payload = {"adz": adz_value}
-            final_response = session.post(post_url, data=payload, headers=headers)
+            final_response = session.post(post_url, data=payload, headers=headers, timeout=30)
             final_soup = BeautifulSoup(final_response.text, 'html.parser')
             
             direct_link_btn = final_soup.find("a", class_="ok btn-general btn-orange")
@@ -278,7 +278,7 @@ class DirectLinkDownloader:
             payload.add_referer("https://datanodes.to/download")
             payload.add_rand("")
             
-            response = requests.post("https://datanodes.to/download", data=payload.get(), headers=headers.get_headers())
+            response = requests.post("https://datanodes.to/download", data=payload.get(), headers=headers.get_headers(), timeout=30)
             url = urllib.parse.unquote(str(response.json()['url']))
             
             return {"url": url, "payload": {}, "headers": {}, "method": "get"}
@@ -369,7 +369,7 @@ class Downloader:
             for key, data_ in data["provider"].items():
                 if "pattern" not in data_: continue
                 regex_finder = re.findall(data_["pattern"], page_content)
-                if regex_finder and len(regex_finder) == 1:
+                if regex_finder and len(regex_finder) >= 1:
                     found_links[key] = data_["formaturl"].format(detected_link = regex_finder[0])
                 else:
                     found_links[key] = None
@@ -979,9 +979,9 @@ class AsyncDownloadManager:
 
         # Get Size (Fallback / Standard)
         if session:
-            resp = session.get(url, headers=headers, stream=True)
+            resp = session.get(url, headers=headers, stream=True, timeout=30)
         else:
-            resp = requests.get(url, headers=headers, stream=True)
+            resp = requests.get(url, headers=headers, stream=True, timeout=30)
         
         total_size = int(resp.headers.get('Content-Length', 0))
         resp.close()
@@ -1088,9 +1088,9 @@ class AsyncDownloadManager:
         
         try:
             if session:
-                r = session.get(url, headers=local_headers, stream=True)
+                r = session.get(url, headers=local_headers, stream=True, timeout=30)
             else:
-                r = requests.get(url, headers=local_headers, stream=True)
+                r = requests.get(url, headers=local_headers, stream=True, timeout=30)
             
             with open(filename, 'ab') as f:
                 bytes_since_flush = 0
