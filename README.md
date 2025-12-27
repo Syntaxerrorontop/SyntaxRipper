@@ -1,12 +1,20 @@
 # SyntaxRipper V3
 
-> **DISCLAIMER:** This project is a proof-of-concept created for **research and educational purposes only**. It is intended to demonstrate automation and UI design patterns. The author provides no warranty and assumes no liability for how this code is used.
+[![Version](https://img.shields.io/badge/version-3.8.3-blue.svg)](version.txt)
+[![License](https://img.shields.io/badge/license-Educational-green.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)](https://www.microsoft.com/windows)
+
+SyntaxRipper is a high-performance, modern Game Manager and Launcher built with a focus on automation, system optimization, and a seamless user experience. It serves as a unified hub for your local game library, providing tools that go beyond simple launching—including advanced file compression, automated save backups, and deep system integration.
+
+---
+
+> **DISCLAIMER:** This project is a proof-of-concept created for **research and educational purposes only**. It is intended to demonstrate automation techniques, asynchronous backend patterns, and modern UI/UX design. The author provides no warranty and assumes no liability for how this code is used.
 
 ## ⚠️ MANDATORY LEGAL NOTICE & PROHIBITED USE
 
 **Please read this carefully. By accessing or using this code, you agree to these terms.**
 
-1.  **Educational Purpose Only:** This repository exists solely to showcase coding techniques, library management logic, and system integration. It is not intended to be used as a tool for acquiring media.
+1.  **Educational Purpose Only:** This repository exists solely to showcase coding techniques, library management logic, and system integration. It is not intended to be used as a tool for acquiring copyrighted media.
 2.  **STRICTLY NO UNAUTHORIZED DOWNLOADS:** This software **must NOT** be used to download, stream, or distribute any copyrighted material without the express permission of the original creator or rights holder. 
 3.  **User Accountability:** The author (`Syntaxerrorontop`) does not host any content, does not provide links to copyrighted media, and does not condone piracy in any form. The user is 100% responsible for their own actions and any legal consequences resulting from the misuse of this code.
 4.  **No Piracy Support:** If you intend to use this software for any illegal activity, including the infringement of intellectual property rights, you are strictly prohibited from using this code.
@@ -14,54 +22,82 @@
 
 ---
 
-## 🚀 Features
+## 🚀 Key Features
 
-### 📚 Library Management
-*   **Centralized Hub:** Automatically scans and organizes your games into a unified library.
-*   **Metadata Enrichment:** Fetches covers, screenshots, and descriptions automatically.
-*   **Smart Sorting:** Filter by Name, Playtime, or Date Added.
-*   **Collections:** Organize games into custom categories.
-*   **Profile Stats:** Track your total playtime and favorite genres.
+### 📚 Advanced Library Management
+*   **Automated Scanning:** Efficiently scans multiple user-defined directories to build a comprehensive library of installed games.
+*   **Asynchronous Metadata:** Fetches covers, high-resolution banners, and detailed descriptions using a background queue system (RAWG API integration). The UI remains responsive and loads instantly while metadata populates in the background.
+*   **HLTB Integration:** Automatically retrieves "How Long To Beat" statistics so you can plan your gaming sessions.
+*   **Dynamic Collections:** Organize your library into nested categories and custom collections with drag-and-drop support.
+*   **Profile Analytics:** Track your gaming habits with persistent playtime tracking and genre distribution charts.
 
-### 🛠️ Advanced Tools
-*   **Game Compression:** Save disk space by compressing game folders using Windows CompactOS (LZX) technology without affecting performance.
-*   **Integrity Checker:** Generate and verify MD5 checksums to ensure your game files are not corrupted.
-*   **Junk Cleaner:** Automatically detect and remove leftover installer files (`_CommonRedist`, `DirectX`, temporary files) to free up space.
-*   **Save Backup System:** Automatically backs up your game saves upon exit. Restore previous saves with a single click.
+### 🛠️ Maintenance & Optimization Tools
+*   **Game Folder Compression:** Utilizes Windows CompactOS (LZX) technology to compress game directories significantly without sacrificing performance or load times.
+*   **Save Backup & Recovery:** Creates timestamped backups of your game saves automatically upon exit. Restore to a previous state with a single click in the maintenance menu.
+*   **Integrity Verification:** Generate baseline MD5 checksums for your game files and verify them later to detect and fix corruption.
+*   **Junk Cleaner:** Scans game directories for unnecessary leftover files like old installers, temporary caches, and redundant redistributables (`_CommonRedist`, `DirectX`).
 
-### ⚡ Performance & Integration
-*   **System Gaming Mode:** Automatically switches your PC to "High Performance" power plan and boosts process priority when a game is launched.
-*   **Discord Rich Presence:** Show what you're playing on your Discord profile automatically.
-*   **Real-Debrid Support:** Integrate your Real-Debrid account for premium download speeds (requires API key).
-*   **Controller Support:** Full navigation support for Xbox/PlayStation controllers.
-
-### 📜 Scripting & Automation
-*   **Pre-Launch/Post-Exit Scripts:** Run custom batch commands before a game starts or after it closes.
-*   **Universal Downloader:** A built-in download manager that supports various file hosts.
-*   **Media Converter:** Convert audio and video files (MP3, MP4, PNG, etc.) using built-in FFmpeg integration.
+### ⚡ System Integration
+*   **Gaming Mode:** Automatically optimizes your PC for gaming by switching to the "High Performance" power plan and boosting the process priority of the active game.
+*   **Discord Rich Presence:** Share your current game and playtime on your Discord profile automatically.
+*   **Real-Debrid Integration:** Connect your Real-Debrid account to unlock premium speeds for supported file hosts within the internal download manager.
+*   **Full Controller Support:** Navigate the entire application using Xbox or PlayStation controllers, perfect for couch gaming setups.
 
 ---
 
-## 📥 Installation
+## 🏗️ Technical Architecture
 
-1.  Download the repository or the latest release.
-2.  Run **`install.bat`**.
-    *   This will automatically install Python and Git if they are missing.
-    *   It will set up the environment and create a desktop shortcut.
-3.  Launch **SyntaxRipper** from your Start Menu or Desktop.
+SyntaxRipper uses a decoupled client-server architecture:
+
+*   **Backend:** Powered by **FastAPI (Python)**. It handles all heavy lifting, including file system operations, web scraping (Selenium/undetected-chromedriver), download management, and system optimizations.
+*   **Frontend:** A sleek, reactive interface built with **HTML5/CSS3/JavaScript** and hosted within **Electron**.
+*   **Communication:** Real-time updates (download progress, metadata status) are pushed from the backend to the frontend via **WebSockets**.
+*   **Data Storage:** All user configuration, library data, and metadata caches are stored locally in the standard Windows `%APPDATA%\SyntaxRipper` folder, ensuring your main application directory remains clean.
+
+---
+
+## 📥 Installation & Setup
+
+1.  **Clone the Repository:**
+    ```bash
+    git clone https://github.com/Syntaxerrorontop/SyntaxRipper.git
+    cd SyntaxRipper
+    ```
+2.  **Run the Installer:**
+    Double-click **`install.bat`**. This script will:
+    *   Verify and install Python 3.11+ and Git via Winget if missing.
+    *   Create a dedicated Python Virtual Environment (`venv`).
+    *   Install all required dependencies (FastAPI, Selenium, etc.).
+    *   Setup the Electron frontend.
+    *   Create a shortcut in your Start Menu.
+
+---
 
 ## 🔄 Updating
 
-To update to the latest version, simply run **`update.bat`** in the installation folder, or use the **"Check for Updates"** feature in the application settings.
+SyntaxRipper features a built-in update mechanism. To update:
+1.  Run **`update.bat`** in the application folder.
+2.  Alternatively, use the **"Check for Updates"** button in the Settings tab.
+*Note: The update process safely stashes your local configuration changes before pulling the latest code from GitHub.*
 
 ---
 
-## 🎮 Usage Tips
+## 🛠️ Troubleshooting & Logs
 
-*   **Adding Games:** Go to Settings -> Library Locations to add folders where your games are installed.
-*   **Controller:** Enable "Controller Support" in Settings to navigate using a gamepad.
-*   **Maintenance:** Click the "Gear" icon on any game page to access Maintenance Tools (Compress, Backup, etc.).
+If you encounter issues, SyntaxRipper maintains detailed logs:
+*   **Main Application Log:** Found at `latest.log` in the root directory. This captures output from both the frontend and backend.
+*   **Server Detailed Log:** Found in `%APPDATA%\SyntaxRipper\server.log`.
+*   **Debug Tip:** If the library appears empty, check your "Library Locations" in Settings and ensure your RAWG API key is valid.
 
 ---
 
-**Developed by Syntaxerrorontop**
+## 🎮 Developing & Contributing
+
+Contributions are welcome for research purposes!
+*   **Backend Source:** Located in `backend/src/`.
+*   **Frontend Source:** Located in `frontend/`.
+*   **Debug Mode:** Launch `start.bat` directly to see real-time console output.
+
+---
+
+**Developed with ❤️ by Syntaxerrorontop**
