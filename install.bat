@@ -62,16 +62,22 @@ echo [2/5] Managing Configuration...
 if exist "%CONFIG_DIR%" (
     echo    -> Found existing configuration. Backing up...
     mkdir "%TEMP%\SyntaxRipperBackup" >nul 2>nul
-    copy "%CONFIG_DIR%\Config\userconfig.json" "%TEMP%\SyntaxRipperBackup\" >nul 2>nul
-    copy "%CONFIG_DIR%\Config\games.json" "%TEMP%\SyntaxRipperBackup\" >nul 2>nul
+    mkdir "%TEMP%\SyntaxRipperBackup\Config" >nul 2>nul
+    mkdir "%TEMP%\SyntaxRipperBackup\Cached" >nul 2>nul
+    
+    xcopy "%CONFIG_DIR%\Config\*" "%TEMP%\SyntaxRipperBackup\Config\" /s /e /i /y >nul 2>nul
+    xcopy "%CONFIG_DIR%\Cached\*" "%TEMP%\SyntaxRipperBackup\Cached\" /s /e /i /y >nul 2>nul
     
     echo    -> Wiping old AppData...
     rmdir /s /q "%CONFIG_DIR%"
     
     echo    -> Restoring configuration...
-    mkdir "%CONFIG_DIR%\Config"
-    copy "%TEMP%\SyntaxRipperBackup\userconfig.json" "%CONFIG_DIR%\Config\" >nul 2>nul
-    copy "%TEMP%\SyntaxRipperBackup\games.json" "%CONFIG_DIR%\Config\" >nul 2>nul
+    mkdir "%CONFIG_DIR%\Config" >nul 2>nul
+    mkdir "%CONFIG_DIR%\Cached" >nul 2>nul
+    
+    xcopy "%TEMP%\SyntaxRipperBackup\Config\*" "%CONFIG_DIR%\Config\" /s /e /i /y >nul 2>nul
+    xcopy "%TEMP%\SyntaxRipperBackup\Cached\*" "%CONFIG_DIR%\Cached\" /s /e /i /y >nul 2>nul
+    
     rmdir /s /q "%TEMP%\SyntaxRipperBackup"
 ) else (
     echo    -> No existing config found. Fresh install.
