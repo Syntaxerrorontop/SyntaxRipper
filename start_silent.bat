@@ -2,7 +2,6 @@
 cd /d "%~dp0"
 
 :: 1. Update Code
-git reset --hard >nul 2>nul
 git pull origin main >nul 2>nul
 
 :: 2. Update Dependencies (Quietly)
