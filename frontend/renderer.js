@@ -1777,6 +1777,7 @@ function moveFocusSibling(el, dir) {
     else if (el.classList.contains('search-result-item')) selector = '.search-result-item';
     else if (el.closest('#download-queue-list')) selector = '.queue-item';
     else if (el.closest('.settings-card')) selector = '.settings-card input, .settings-card button, .settings-card select';
+    else if (el.classList.contains('bp-card')) selector = '.bp-card';
 
     const all = Array.from(document.querySelectorAll(selector)).filter(e => {
         if (el.closest('.modal-card') && !e.closest('.modal-card').parentElement.style.display.includes('flex')) return false;
@@ -1814,8 +1815,8 @@ function moveFocusSibling(el, dir) {
             if (dir === 'up' || dir === 'down') perpDist = Math.abs(center.x - currentCenter.x);
             else perpDist = Math.abs(center.y - currentCenter.y);
 
-            // Penalize perpendicular distance to favor straight lines
-            const weightedDist = dist + (perpDist * 2);
+            // Penalize perpendicular distance HEAVILY to favor straight lines in grids
+            const weightedDist = dist + (perpDist * 10);
 
             if (weightedDist < minDistance) {
                 minDistance = weightedDist;
@@ -1894,31 +1895,14 @@ function renderBigPictureGrid() {
         const card = document.createElement('div');
         card.className = 'bp-card';
         card.tabIndex = 0;
-        card.style.cssText = `
-            aspect-ratio: 2/3; 
-            background: #252526; 
-            border-radius: 12px; 
-            overflow: hidden; 
-            cursor: pointer; 
-            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            border: 3px solid transparent;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        `;
         
         const posterUrl = game.poster || 'https://via.placeholder.com/300x450?text=No+Poster';
-        card.innerHTML = `<img src="${posterUrl}" style="width:100%; height:100%; object-fit:cover;">`;
+        card.innerHTML = `<img src="${posterUrl}" style="width:100%; height:100%; object-fit:cover; pointer-events: none;">`;
         
         card.onfocus = () => {
-            card.style.transform = 'scale(1.1)';
-            card.style.borderColor = 'var(--accent-color)';
-            card.style.boxShadow = '0 10px 30px rgba(0, 122, 204, 0.5)';
             updateBPInfo(game);
-        };
-        
-        card.onblur = () => {
-            card.style.transform = 'scale(1)';
-            card.style.borderColor = 'transparent';
-            card.style.boxShadow = '0 4px 15px rgba(0,0,0,0.3)';
+            // Smoothly scroll focused card into view if needed
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
         };
         
         card.onclick = () => launchGame(game.id);
