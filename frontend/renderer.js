@@ -1690,7 +1690,7 @@ function handleNav(dir) {
     const active = document.activeElement;
     
     // 1. Handle Modal
-    const modal = document.querySelector('.modal-overlay[style*="display: flex"]');
+    const modal = document.querySelector('.modal-overlay[style*="display: flex"], .bp-modal-overlay[style*="display: flex"]');
     if (modal) {
         if (!modal.contains(active)) {
             const first = modal.querySelector('button, input, textarea, select');
@@ -1773,7 +1773,7 @@ function moveFocusSibling(el, dir) {
     if (el.classList.contains('nav-item')) selector = '.nav-item';
     else if (el.classList.contains('tree-item') || el.tagName === 'SUMMARY') selector = '#library-tree summary, #library-tree .tree-item';
     else if (el.classList.contains('context-item')) selector = '.context-item';
-    else if (el.closest('.modal-card')) selector = '.modal-card button:not([disabled]), .modal-card input, .modal-card textarea, .modal-card select, .modal-card .path-list input';
+    else if (el.closest('.modal-card, .bp-modal')) selector = '.modal-card button:not([disabled]), .modal-card input, .modal-card textarea, .modal-card select, .modal-card .path-list input, .bp-modal button:not([disabled])';
     else if (el.classList.contains('search-result-item')) selector = '.search-result-item';
     else if (el.closest('#download-queue-list')) selector = '.queue-item';
     else if (el.closest('.settings-card')) selector = '.settings-card input, .settings-card button, .settings-card select';

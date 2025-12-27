@@ -122,11 +122,13 @@ def metadata_worker():
             
             # Check if metadata fetcher is ready
             if metadata_fetcher and metadata_fetcher.api_key:
-                # Fetch (blocking)
-                data = metadata_fetcher.get_metadata(game_name, cached_only=False)
-                if data:
-                    # Notify frontend to refresh library (or specific game if we add that logic)
-                    broadcast_event("complete", {"message": f"Metadata updated for {game_name}"})
+                # Only fetch if actually needed
+                if metadata_fetcher.needs_update(game_name):
+                    # Fetch (blocking)
+                    data = metadata_fetcher.get_metadata(game_name, cached_only=False)
+                    if data:
+                        # Notify frontend to refresh library
+                        broadcast_event("complete", {"message": f"Metadata updated for {game_name}"})
             
             if game_name in queued_metadata:
                 queued_metadata.remove(game_name)

@@ -22,6 +22,23 @@ class MetadataFetcher:
     def _save_cache(self):
         save_json(self.cache_file, self.cache)
 
+    def needs_update(self, game_name):
+        """Checks if a game needs a metadata refresh (missing or >10 days old)."""
+        norm_name = game_name.lower().strip()
+        if norm_name not in self.cache:
+            return True
+        
+        data = self.cache[norm_name]
+        if not data or not data.get("banner"):
+            return True
+            
+        last_upd = data.get("last_updated", 0)
+        cooldown = 10 * 24 * 3600 # 10 days
+        if time.time() - last_upd > cooldown:
+            return True
+            
+        return False
+
     def _download_asset(self, url, folder_path, filename):
         if not url: return ""
         try:
