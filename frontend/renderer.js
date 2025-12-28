@@ -337,6 +337,8 @@ function renderSettings() {
     const verboseIn = document.getElementById('verboseLoggingInput'); if (verboseIn) verboseIn.checked = currentSettings.verbose_logging || false;
     const rpcIn = document.getElementById('discordRpcInput'); if (rpcIn) rpcIn.checked = currentSettings.discord_rpc_enabled !== false; // Default true
     const gameModeIn = document.getElementById('gamingModeInput'); if (gameModeIn) gameModeIn.checked = currentSettings.gaming_mode_enabled !== false; // Default true
+    const showHiddenIn = document.getElementById('showHiddenInput'); if (showHiddenIn) showHiddenIn.checked = currentSettings.show_hidden_games || false;
+    const randomUninstalledIn = document.getElementById('randomUninstalledInput'); if (randomUninstalledIn) randomUninstalledIn.checked = currentSettings.random_include_uninstalled || false;
     
     loadToolsStatus();
 }
@@ -576,6 +578,7 @@ async function saveSettings() {
         const verboseIn = document.getElementById('verboseLoggingInput'); if (verboseIn) currentSettings.verbose_logging = verboseIn.checked;
         const controllerIn = document.getElementById('controllerSupportInput'); if (controllerIn) currentSettings.controller_support = controllerIn.checked;
         const showHiddenIn = document.getElementById('showHiddenInput'); if (showHiddenIn) currentSettings.show_hidden_games = showHiddenIn.checked;
+        const randomUninstalledIn = document.getElementById('randomUninstalledInput'); if (randomUninstalledIn) currentSettings.random_include_uninstalled = randomUninstalledIn.checked;
         const rpcIn = document.getElementById('discordRpcInput'); if (rpcIn) currentSettings.discord_rpc_enabled = rpcIn.checked;
         const gameModeIn = document.getElementById('gamingModeInput'); if (gameModeIn) currentSettings.gaming_mode_enabled = gameModeIn.checked;
         // Mappings are updated in-place in currentSettings during remap, just need to send them

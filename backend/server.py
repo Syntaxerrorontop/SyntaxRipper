@@ -537,6 +537,7 @@ class SettingsUpdate(BaseModel):
     controller_mapping: dict = {}
     media_output_path: str = ""
     show_hidden_games: bool = False
+    random_include_uninstalled: bool = False
 
 class AddLibraryRequest(BaseModel):
     title: str
@@ -810,11 +811,21 @@ async def get_random_game():
     import random
     config_path = os.path.join(CONFIG_FOLDER, "games.json")
     data = load_json(config_path)
+    user_config = UserConfig(CONFIG_FOLDER, "userconfig.json")
     
-    installed_ids = [gid for gid, info in data.items() if info.get("exe") and "Not Installed" not in info.get("categorys", [])]
+    include_uninstalled = getattr(user_config, "RANDOM_INCLUDE_UNINSTALLED", False)
     
-    if installed_ids:
-        return {"id": random.choice(installed_ids)}
+    candidates = []
+    for gid, info in data.items():
+        if info.get("hidden", False): continue
+        
+        is_installed = info.get("exe") and "Not Installed" not in info.get("categorys", [])
+        
+        if is_installed or include_uninstalled:
+            candidates.append(gid)
+    
+    if candidates:
+        return {"id": random.choice(candidates)}
     return {"id": None}
 
 @app.get("/api/library/game/{game_id}")
@@ -1228,7 +1239,8 @@ def get_settings():
         "collapsed_categories": config.COLLAPSED_CATEGORIES,
         "media_output_path": config.MEDIA_OUTPUT_PATH,
         "last_selected_game_id": config.LAST_SELECTED_GAME_ID,
-        "show_hidden_games": config.SHOW_HIDDEN_GAMES
+        "show_hidden_games": config.SHOW_HIDDEN_GAMES,
+        "random_include_uninstalled": getattr(config, "RANDOM_INCLUDE_UNINSTALLED", False)
     }
 
 class ReorderCategoriesRequest(BaseModel):
@@ -1294,6 +1306,7 @@ def update_settings(settings: SettingsUpdate):
     
     config.MEDIA_OUTPUT_PATH = settings.media_output_path
     config.SHOW_HIDDEN_GAMES = settings.show_hidden_games
+    config.RANDOM_INCLUDE_UNINSTALLED = settings.random_include_uninstalled
 
     # New Settings
     if hasattr(settings, "real_debrid_key"):
