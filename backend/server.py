@@ -1240,7 +1240,8 @@ def get_settings():
         "media_output_path": config.MEDIA_OUTPUT_PATH,
         "last_selected_game_id": config.LAST_SELECTED_GAME_ID,
         "show_hidden_games": config.SHOW_HIDDEN_GAMES,
-        "random_include_uninstalled": getattr(config, "RANDOM_INCLUDE_UNINSTALLED", False)
+        "random_include_uninstalled": getattr(config, "RANDOM_INCLUDE_UNINSTALLED", False),
+        "excluded_folders": getattr(config, "EXCLUDED_FOLDERS", [])
     }
 
 class ReorderCategoriesRequest(BaseModel):
@@ -1408,6 +1409,89 @@ async def clean_cache():
 
 class PathRequest(BaseModel):
     path: str
+
+@app.post("/api/system/fix-defender")
+async def fix_defender_exclusions():
+    """Adds all configured game paths to Windows Defender exclusions."""
+    user_config = UserConfig(CONFIG_FOLDER, "userconfig.json")
+    paths = user_config.GAME_PATHS
+    
+    if not paths:
+        raise HTTPException(status_code=400, detail="No game paths configured")
+    
+    # Update config to track these
+    current_excluded = set(user_config.EXCLUDED_FOLDERS)
+    for p in paths:
+        current_excluded.add(p)
+    user_config.EXCLUDED_FOLDERS = list(current_excluded)
+    user_config.save()
+
+    # Construct PowerShell command
+    # Add-MpPreference -ExclusionPath "C:\Games", "D:\Games"
+    # We need to escape quotes carefully.
+    
+    # Join paths with comma and quote them
+    path_args = ",".join([f"'{p}'" for p in paths])
+    ps_cmd = f"Add-MpPreference -ExclusionPath {path_args}"
+    
+    try:
+        # Use ShellExecute to run as admin
+        import ctypes
+        # Running powershell with the command
+        # We need to pass the command as an argument to powershell
+        # powershell.exe -Command "Add-MpPreference ..."
+        
+        # NOTE: ShellExecute 'runas' works on the executable, so we run powershell.exe
+        
+        params = f"-WindowStyle Hidden -Command \"{ps_cmd}\""
+        
+        ret = ctypes.windll.shell32.ShellExecuteW(
+            None, 
+            "runas", 
+            "powershell.exe", 
+            params, 
+            None, 
+            1
+        )
+        
+        if ret <= 32:
+            raise Exception(f"ShellExecute failed with code {ret}")
+            
+        return {"status": "started"}
+        
+    except Exception as e:
+        logger.error(f"Failed to run defender fix: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/system/revert-defender")
+async def revert_defender_exclusions():
+    """Removes tracked game paths from Windows Defender exclusions."""
+    user_config = UserConfig(CONFIG_FOLDER, "userconfig.json")
+    paths = user_config.EXCLUDED_FOLDERS
+    
+    if not paths:
+        raise HTTPException(status_code=400, detail="No tracked exclusions found")
+    
+    path_args = ",".join([f"'{p}'" for p in paths])
+    ps_cmd = f"Remove-MpPreference -ExclusionPath {path_args}"
+    
+    try:
+        import ctypes
+        params = f"-WindowStyle Hidden -Command \"{ps_cmd}\""
+        ret = ctypes.windll.shell32.ShellExecuteW(None, "runas", "powershell.exe", params, None, 1)
+        
+        if ret <= 32:
+            raise Exception(f"ShellExecute failed with code {ret}")
+            
+        # Clear tracking
+        user_config.EXCLUDED_FOLDERS = []
+        user_config.save()
+            
+        return {"status": "started", "removed_count": len(paths)}
+        
+    except Exception as e:
+        logger.error(f"Failed to revert defender fix: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/system/open-path")
 async def open_any_path(request: PathRequest):

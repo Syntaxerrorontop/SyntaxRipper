@@ -340,6 +340,16 @@ function renderSettings() {
     const showHiddenIn = document.getElementById('showHiddenInput'); if (showHiddenIn) showHiddenIn.checked = currentSettings.show_hidden_games || false;
     const randomUninstalledIn = document.getElementById('randomUninstalledInput'); if (randomUninstalledIn) randomUninstalledIn.checked = currentSettings.random_include_uninstalled || false;
     
+    const revertBtn = document.getElementById('btn-revert-defender');
+    if (revertBtn) {
+        if (currentSettings.excluded_folders && currentSettings.excluded_folders.length > 0) {
+            revertBtn.style.display = 'inline-block';
+            revertBtn.textContent = `Revert Exclusions (${currentSettings.excluded_folders.length})`;
+        } else {
+            revertBtn.style.display = 'none';
+        }
+    }
+
     loadToolsStatus();
 }
 
@@ -477,6 +487,33 @@ async function cleanDownloadCache() {
         const res = await fetch(`${API_URL}/api/download/cache/clean`, { method: 'POST' });
         const data = await res.json();
         if (res.ok) { await showAlert("Success", `Download cache cleaned! Removed ${data.count} items.`); }
+    } catch(e) { await showAlert("Error", e.message); }
+}
+
+async function fixMissingFiles() {
+    if (!await showConfirm("Fix Missing Files", "This will add all configured game paths to Windows Defender exclusions. This requires Administrator privileges (UAC). Continue?", false)) return;
+    try {
+        const res = await fetch(`${API_URL}/api/system/fix-defender`, { method: 'POST' });
+        if (res.ok) {
+            await showAlert("Success", "Windows Defender exclusions updated! Check for UAC prompt if it didn't appear.");
+        } else {
+            const err = await res.json();
+            throw new Error(err.detail || "Unknown error");
+        }
+    } catch(e) { await showAlert("Error", "Failed to update exclusions: " + e.message); }
+}
+
+async function revertDefenderFix() {
+    if (!await showConfirm("Revert Exclusions", "This will remove the previously added Windows Defender exclusions. Requires Admin. Continue?", false)) return;
+    try {
+        const res = await fetch(`${API_URL}/api/system/revert-defender`, { method: 'POST' });
+        if (res.ok) {
+            await showAlert("Success", "Exclusions removed.");
+            loadSettings();
+        } else {
+            const err = await res.json();
+            throw new Error(err.detail || "Unknown error");
+        }
     } catch(e) { await showAlert("Error", e.message); }
 }
 

@@ -1187,6 +1187,13 @@
                             <span style="color: #aaa;">Remove known orphaned save data folders.</span>
                             <button class="btn btn-secondary" onclick="openCleanSavesDialog()">Clean Unused Save Data</button>
                         </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 15px;">
+                            <span style="color: #aaa;">Exclude all game folders from Windows Defender to prevent missing files.</span>
+                            <div>
+                                <button class="btn btn-secondary" onclick="fixMissingFiles()">Fix Missing Game Files</button>
+                                <button class="btn btn-secondary" id="btn-revert-defender" onclick="revertDefenderFix()" style="display:none; margin-left: 10px; color: #ff6b6b; border-color: #5a2a2a;">Revert Exclusions</button>
+                            </div>
+                        </div>
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <span style="color: #aaa;">Restart the application to apply deep configuration changes.</span>
                             <button class="btn btn-danger" onclick="ipcRenderer.send('restart_app')">Restart Application</button>

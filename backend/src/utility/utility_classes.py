@@ -140,7 +140,8 @@ class UserConfig:
             "last_selected_game_id": None,
             "show_hidden_games": False,
             "total_playtime_global": 0,
-            "random_include_uninstalled": False
+            "random_include_uninstalled": False,
+            "excluded_folders": []
         }
         
         File.check_existence(in_path, filename, add_content=default_data, use_json=True, quiet=quite)
@@ -211,6 +212,7 @@ class UserConfig:
         self.SHOW_HIDDEN_GAMES = self._data.get("show_hidden_games", False)
         self.TOTAL_PLAYTIME_GLOBAL = self._data.get("total_playtime_global", 0)
         self.RANDOM_INCLUDE_UNINSTALLED = self._data.get("random_include_uninstalled", False)
+        self.EXCLUDED_FOLDERS = self._data.get("excluded_folders", [])
 
     def save(self):
         self._data["shutil_move_error_replace"] = self.SHUTIL_MOVE_ERROR_REPLACE
@@ -246,5 +248,6 @@ class UserConfig:
         self._data["show_hidden_games"] = self.SHOW_HIDDEN_GAMES
         self._data["total_playtime_global"] = self.TOTAL_PLAYTIME_GLOBAL
         self._data["random_include_uninstalled"] = self.RANDOM_INCLUDE_UNINSTALLED
+        self._data["excluded_folders"] = self.EXCLUDED_FOLDERS
         
         save_json(self._path, self._data)
