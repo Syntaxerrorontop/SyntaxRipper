@@ -1659,41 +1659,38 @@ async def launch_in_sandbox(game_id: str, detect: bool = True):
     exe_name = "unknown.exe"
     
     # Calculate Game Command
-    # 1. Resolve to absolute path
+    # 1. Resolve relative exe path
     if exe_path and not os.path.isabs(exe_path):
         exe_path = os.path.join(game_folder, exe_path)
 
-    if exe_path:
+    if exe_path and os.path.exists(exe_path):
         try:
-            # 2. Strict prefix stripping based on mapped folder
-            # We mapped game_folder -> C:\Game
-            # So we just need the path of exe relative to game_folder
+            # 2. Strict Hash Split Strategy
+            # We assume the exe_path contains the game_id (hash) folder name.
+            # We split exactly there to get the relative structure inside the mapped folder.
             
-            gf_norm = os.path.normpath(game_folder).lower()
-            ex_norm = os.path.normpath(exe_path).lower()
+            idx = exe_path.lower().find(game_id.lower())
             
-            if ex_norm.startswith(gf_norm):
-                # Extract relative part
-                remainder = ex_norm[len(gf_norm):].lstrip(os.sep)
+            if idx != -1:
+                # Extract part AFTER the hash
+                # path: ...\Games\HASH\Bin\Game.exe -> \Bin\Game.exe
+                remainder = exe_path[idx + len(game_id):].lstrip("\\/")
                 
-                if remainder:
-                    exe_name = os.path.basename(remainder)
-                    rel_dir = os.path.dirname(remainder)
-                    
-                    work_dir = r"C:\Game"
-                    if rel_dir:
-                        work_dir = f"C:\\Game\\{rel_dir}"
-                        
-                    game_cmd = f'start /wait /MAX /D "{work_dir}" "" "{exe_name}" -fullscreen'
-                    logger.info(f"Sandbox: Calculated path via prefix strip: {game_cmd}")
-                else:
-                    raise Exception("Executable path is same as game folder root")
+                exe_name = os.path.basename(remainder)
+                rel_dir = os.path.dirname(remainder)
+                
+                # Construct working directory
+                work_dir = r"C:\Game"
+                if rel_dir and rel_dir != ".":
+                    work_dir = f"C:\\Game\\{rel_dir}"
+                
+                game_cmd = f'start /wait /MAX /D "{work_dir}" "" "{exe_name}" -fullscreen'
+                logger.info(f"Sandbox: Path via hash split: {game_cmd}")
             else:
-                # Fallback for manual exes that don't follow the hash folder pattern
-                logger.warning(f"Sandbox: Exe {exe_path} is not inside {game_folder}. Using fallback.")
-                if os.path.exists(exe_path):
-                    exe_name = os.path.basename(exe_path)
-                    game_cmd = f'start /wait /MAX /D "C:\\Game" "" "{exe_name}"'
+                logger.warning(f"Sandbox: Hash {game_id} not found in path {exe_path}. Fallback to filename.")
+                exe_name = os.path.basename(exe_path)
+                game_cmd = f'start /wait /MAX /D "C:\\Game" "" "{exe_name}"'
+
         except Exception as e: 
             logger.warning(f"Sandbox path calc error: {e}")
 
