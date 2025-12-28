@@ -1619,7 +1619,19 @@ async def launch_in_sandbox(game_id: str, detect: bool = True):
         raise HTTPException(status_code=404, detail="Game not found")
     
     info = config_games[game_id]
-    game_folder = _get_game_path(info, game_id)
+    
+    # 1. Try to find the root host folder (the one named with game_id hash)
+    user_config = UserConfig(CONFIG_FOLDER, "userconfig.json")
+    game_folder = None
+    for p in user_config.GAME_PATHS:
+        candidate = os.path.join(p, game_id)
+        if os.path.exists(candidate) and os.path.isdir(candidate):
+            game_folder = candidate
+            break
+            
+    if not game_folder:
+        game_folder = _get_game_path(info, game_id)
+        
     if not game_folder or not os.path.exists(game_folder):
         raise HTTPException(status_code=400, detail="Game directory not found")
 
@@ -1655,8 +1667,16 @@ async def launch_in_sandbox(game_id: str, detect: bool = True):
             
             if ex_abs.startswith(gf_abs):
                 rel = os.path.relpath(exe_path, game_folder)
-                # Launch maximized
-                game_cmd = f'start /wait /MAX "" "C:\\Game\\{rel}" -fullscreen'
+                rel_dir = os.path.dirname(rel)
+                exe_name = os.path.basename(rel)
+                
+                # Construct working directory inside sandbox
+                work_dir = f"C:\\Game\\{rel_dir}"
+                if work_dir.endswith("\\"): work_dir = work_dir[:-1]
+                
+                # Launch with /D to set working directory
+                # Syntax: start /wait /MAX /D "Path" "Title" "Exe" Args
+                game_cmd = f'start /wait /MAX /D "{work_dir}" "" "{exe_name}" -fullscreen'
             else:
                 logger.warning(f"Sandbox: Exe {exe_path} is not inside game folder {game_folder}")
         except Exception as e: 
@@ -1741,7 +1761,6 @@ if not exist "C:\\Game" (
 echo Preparing Sandbox Environment...
 {restore_cmd}
 echo Launching Game...
-cd /d C:\\Game
 {game_cmd}
 echo Game Closed. Post-processing...
 {backup_cmd}
