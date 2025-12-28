@@ -1648,13 +1648,19 @@ async def launch_in_sandbox(game_id: str, detect: bool = False):
     
     # Calculate Game Command
     if exe_path and os.path.exists(exe_path):
-        exe_name = os.path.basename(exe_path)
         try:
-            if os.path.commonpath([game_folder, exe_path]) == os.path.normpath(game_folder):
+            # Case-insensitive check for path containment
+            gf_abs = os.path.abspath(game_folder).lower()
+            ex_abs = os.path.abspath(exe_path).lower()
+            
+            if ex_abs.startswith(gf_abs):
                 rel = os.path.relpath(exe_path, game_folder)
                 # Launch maximized
                 game_cmd = f'start /wait /MAX "" "C:\\Game\\{rel}" -fullscreen'
-        except: pass
+            else:
+                logger.warning(f"Sandbox: Exe {exe_path} is not inside game folder {game_folder}")
+        except Exception as e: 
+            logger.warning(f"Sandbox path calc error: {e}")
 
     # Calculate Mappings
     mapped_folders_xml = f"""
@@ -1669,20 +1675,33 @@ async def launch_in_sandbox(game_id: str, detect: bool = False):
     <ReadOnly>false</ReadOnly>
   </MappedFolder>
 """
-    # Note: C:\Scripts is mapped R/W so we can write the log there if detecting. 
-    # Or we can map C:\Saves there. Let's reuse C:\Scripts as the dump location for simplicity in detection mode.
 
     if detect:
-        # Map Tools for Procmon
-        tools_path = os.path.join(APPDATA_CACHE_PATH, "Tools")
-        if os.path.exists(tools_path):
+        # Locate Procmon in various possible locations
+        tools_host_path = None
+        candidates = [
+            os.path.join(APPDATA_CACHE_PATH, "Tools"),
+            os.path.join(os.getcwd(), "backend", "Tools"),
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "Tools") # relative to server.py
+        ]
+        
+        for p in candidates:
+            if os.path.exists(os.path.join(p, "Procmon.exe")):
+                tools_host_path = p
+                break
+        
+        if tools_host_path:
              mapped_folders_xml += f"""
   <MappedFolder>
-    <HostFolder>{os.path.abspath(tools_path)}</HostFolder>
+    <HostFolder>{os.path.abspath(tools_host_path)}</HostFolder>
     <SandboxFolder>C:\\Tools</SandboxFolder>
     <ReadOnly>true</ReadOnly>
   </MappedFolder>
 """
+        else:
+            logger.error("Procmon.exe not found for sandbox detection.")
+            # We might want to warn the user or fail? 
+            # For now, script will fail inside sandbox ("C:\Tools\Procmon.exe not found")
         # Detection Commands
         restore_cmd = 'echo Starting Procmon... && start /min "" "C:\\Tools\\Procmon.exe" /BackingFile "C:\\Scripts\\log.pml" /AcceptEula /Quiet'
         # After game closes:
