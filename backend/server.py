@@ -1607,10 +1607,16 @@ async def launch_in_sandbox(game_id: str):
         f.write(wsb_content)
 
     try:
-        os.startfile(wsb_path)
+        # Explicitly run WindowsSandbox.exe with the config
+        subprocess.Popen(["WindowsSandbox.exe", wsb_path])
         return {"status": "sandbox_launched", "warning": "Saves and data changes inside the sandbox will NOT be persisted to your real system."}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to start Windows Sandbox: {e}")
+        logger.error(f"Sandbox launch error: {e}")
+        try:
+            os.startfile(wsb_path)
+            return {"status": "sandbox_launched_fallback", "warning": "Saves and data changes inside the sandbox will NOT be persisted to your real system."}
+        except Exception as e2:
+            raise HTTPException(status_code=500, detail=f"Failed to start Windows Sandbox: {e}. Fallback error: {e2}")
 
 @app.post("/api/launch/{game_id}")
 async def launch_game(game_id: str):
