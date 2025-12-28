@@ -1126,8 +1126,26 @@ function showDetails(gameId) {
         settingsBtn.onclick = () => openGameSettings(game);
     }
 
-    const posterUrl = game.banner || game.poster || 'https://via.placeholder.com/1920x600?text=No+Image';
-    document.getElementById('detail-hero').style.backgroundImage = `url('${posterUrl}')`;
+    const ts = game.last_updated ? `?t=${game.last_updated}` : '';
+    const rawPoster = game.banner || game.poster;
+    const posterUrl = rawPoster ? (rawPoster + ts) : 'https://via.placeholder.com/1920x600?text=No+Image';
+    
+    const heroEl = document.getElementById('detail-hero');
+    heroEl.style.backgroundImage = 'none';
+    heroEl.style.backgroundColor = '#161616';
+    heroEl.innerHTML = '<div style="display:flex; justify-content:center; align-items:center; height:100%; color:#333; font-size:24px;">↻</div>';
+    
+    const img = new Image();
+    img.src = posterUrl;
+    img.onload = () => {
+        heroEl.innerHTML = ''; // Clear spinner
+        heroEl.style.backgroundImage = `url('${posterUrl}')`;
+    };
+    img.onerror = () => {
+        heroEl.innerHTML = '';
+        heroEl.style.backgroundImage = `url('https://via.placeholder.com/1920x600?text=No+Image')`;
+    };
+
     document.getElementById('detail-title').textContent = game.name;
     const pt = Number(game.playtime || 0);
     document.getElementById('detail-meta').textContent = `${game.platform} • Version: ${game.version} • Played: ${(pt / 3600).toFixed(1)}h`;
@@ -1264,7 +1282,7 @@ function showDetails(gameId) {
     }
     
     const gallery = document.getElementById('detail-gallery'); gallery.innerHTML = '';
-    currentGalleryImages = game.screenshots || [];
+    currentGalleryImages = (game.screenshots || []).map(s => s + ts);
     if (currentGalleryImages.length > 0) {
         currentGalleryIndex = 0;
         gallery.innerHTML = `<div class="slideshow-container"><div class="slide-arrow" style="left:10px;" onclick="changeSlide(-1)">❮</div><div class="slide-arrow" style="right:10px;" onclick="changeSlide(1)">❯</div><img id="gallery-img" src="" style="width:100%; height:100%; object-fit:contain; cursor:zoom-in;" ondblclick="openFullscreen(this.src)"><div id="gallery-count" style="position:absolute; bottom:10px; right:10px; background:rgba(0,0,0,0.6); color:white; padding:2px 8px; border-radius:4px; font-size:12px;"></div></div>`;
