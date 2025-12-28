@@ -1133,7 +1133,7 @@ function showDetails(gameId) {
     const heroEl = document.getElementById('detail-hero');
     heroEl.style.backgroundImage = 'none';
     heroEl.style.backgroundColor = '#161616';
-    heroEl.innerHTML = '<div style="display:flex; justify-content:center; align-items:center; height:100%; color:#333; font-size:24px;">↻</div>';
+    heroEl.innerHTML = '<div style="display:flex; justify-content:center; align-items:center; height:100%; color:#333; font-size:24px;"><span class="spin">↻</span></div>';
     
     const img = new Image();
     img.src = posterUrl;
@@ -1570,18 +1570,38 @@ async function stopGame(id) {
 }
  
 async function openFolder(id) { try { await fetch(`${API_URL}/api/open-folder/${id}`, { method: 'POST' }); } catch (e) {} }
-function openFullscreen(src) { if (!src) return; const o = document.getElementById('fullscreen-overlay'), i = document.getElementById('fullscreen-img'); i.src = src; o.style.display = 'flex'; }
+
+function openFullscreen(src) { 
+    if (!src) return; 
+    const o = document.getElementById('fullscreen-overlay'), i = document.getElementById('fullscreen-img'); 
+    i.src = src; 
+    o.style.display = 'flex'; 
+    updateFullscreenCounter();
+}
+
 function closeFullscreen() { document.getElementById('fullscreen-overlay').style.display = 'none'; }
+
 function changeSlide(dir) {
     if (currentGalleryImages.length === 0) return;
     currentGalleryIndex = (currentGalleryIndex + dir + currentGalleryImages.length) % currentGalleryImages.length;
     updateGalleryImage();
-    if (document.getElementById('fullscreen-overlay').style.display === 'flex') document.getElementById('fullscreen-img').src = currentGalleryImages[currentGalleryIndex];
+    if (document.getElementById('fullscreen-overlay').style.display === 'flex') {
+        document.getElementById('fullscreen-img').src = currentGalleryImages[currentGalleryIndex];
+        updateFullscreenCounter();
+    }
 }
+
 function updateGalleryImage() {
     const img = document.getElementById('gallery-img'), cnt = document.getElementById('gallery-count');
     if (img) { img.src = currentGalleryImages[currentGalleryIndex]; img.onerror = () => { img.src = 'https://via.placeholder.com/800x450?text=No+Image'; }; }
     if (cnt) cnt.textContent = `${currentGalleryIndex + 1} / ${currentGalleryImages.length}`;
+}
+
+function updateFullscreenCounter() {
+    const cnt = document.getElementById('fullscreen-count');
+    if (cnt && currentGalleryImages.length > 0) {
+        cnt.textContent = `${currentGalleryIndex + 1} / ${currentGalleryImages.length}`;
+    }
 }
 
 async function showSearchPreview(title, url) {
