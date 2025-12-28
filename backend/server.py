@@ -1742,16 +1742,18 @@ pause
         f.write(wsb_content)
 
     try:
-        subprocess.Popen(["WindowsSandbox.exe", wsb_path])
+        # Use absolute path to ensure we run the EXE and not trigger file association
+        sandbox_exe = os.path.expandvars(r"%SystemRoot%\System32\WindowsSandbox.exe")
+        if not os.path.exists(sandbox_exe):
+            sandbox_exe = "WindowsSandbox.exe"
+            
+        subprocess.Popen([sandbox_exe, wsb_path])
+        
         msg = "Detection active. Close game to finish." if detect else "Save Sync Active: Close the GAME first, wait for sync, then close Sandbox."
         return {"status": "sandbox_launched", "warning": msg}
     except Exception as e:
         logger.error(f"Sandbox launch error: {e}")
-        try:
-            os.startfile(wsb_path)
-            return {"status": "sandbox_launched_fallback", "warning": "Fallback launch used."}
-        except Exception as e2:
-            raise HTTPException(status_code=500, detail=f"Failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to start Windows Sandbox: {e}")
 
 @app.post("/api/launch/{game_id}")
 async def launch_game(game_id: str):
