@@ -1067,6 +1067,13 @@ function showContextMenu(e, game) {
     
     let html = '';
     
+    // Play/Stop Actions
+    if (runningGames.includes(game.id)) {
+        html += `<div class="context-item" tabindex="0" onclick="stopGame('${game.id}')" style="color: #ff6b6b;">⏹ Stop Game</div><div class="context-separator"></div>`;
+    } else if (game.installed) {
+        html += `<div class="context-item" tabindex="0" onclick="launchGame('${game.id}')" style="color: #28a745;">▶ Play</div><div class="context-separator"></div>`;
+    }
+    
     // Hide Action
     const hideText = game.hidden ? "Unhide Game" : "Hide Game";
     html += `<div class="context-item" tabindex="0" onclick="toggleHideGame('${game.id}')">${hideText}</div><div class="context-separator"></div>`;

@@ -1560,7 +1560,7 @@ async def run_game_setup(game_id: str):
 
 @app.post("/api/game/{game_id}/sandbox")
 async def launch_in_sandbox(game_id: str):
-    """Generates a Windows Sandbox configuration and launches the game inside it."""
+    """Generates a Windows Sandbox configuration with Save Sync and launches it."""
     config_games = load_json(os.path.join(CONFIG_FOLDER, "games.json"))
     if game_id not in config_games:
         raise HTTPException(status_code=404, detail="Game not found")
@@ -1570,35 +1570,87 @@ async def launch_in_sandbox(game_id: str):
     if not game_folder or not os.path.exists(game_folder):
         raise HTTPException(status_code=400, detail="Game directory not found")
 
-    # Determine executable relative to the mapped folder
     exe_path = info.get("exe", "")
-    if exe_path and os.path.isabs(exe_path):
-        exe_rel_path = os.path.relpath(exe_path, game_folder)
-    else:
-        exe_rel_path = exe_path
+    save_path = info.get("save_path", "")
+    
+    # 1. Prepare Script Directory
+    sandbox_script_dir = os.path.join(CACHE_FOLDER, "sandbox_tmp")
+    if not os.path.exists(sandbox_script_dir): os.makedirs(sandbox_script_dir)
+    
+    # 2. Determine Guest Paths & Script Content
+    game_cmd = "explorer.exe C:\\Game"
+    restore_cmd = "REM No Save Path Detected"
+    backup_cmd = "REM No Save Path Detected"
+    
+    # Calculate Game Command
+    if exe_path and os.path.exists(exe_path):
+        try:
+            if os.path.commonpath([game_folder, exe_path]) == os.path.normpath(game_folder):
+                rel = os.path.relpath(exe_path, game_folder)
+                # Use start /wait to block execution so we can backup afterwards
+                # Attempt fullscreen flag
+                game_cmd = f'start /wait /MAX "" "C:\\Game\\{rel}" -fullscreen'
+        except: pass
 
-    # Check if Sandbox is available
-    try:
-        # Check registry or where command
-        import subprocess
-        res = subprocess.run(["where", "WindowsSandbox.exe"], capture_output=True, text=True)
-        if res.returncode != 0:
-            raise HTTPException(status_code=400, detail="Windows Sandbox not found. Please enable it in 'Turn Windows features on or off'.")
-    except:
-        pass
-
-    # Create .wsb content
-    # We map the game folder to C:\Game inside the sandbox
-    wsb_content = f"""<Configuration>
-<MappedFolders>
+    # Calculate Save Sync and Mappings
+    mapped_folders_xml = f"""
   <MappedFolder>
     <HostFolder>{os.path.abspath(game_folder)}</HostFolder>
     <SandboxFolder>C:\\Game</SandboxFolder>
     <ReadOnly>false</ReadOnly>
   </MappedFolder>
+  <MappedFolder>
+    <HostFolder>{os.path.abspath(sandbox_script_dir)}</HostFolder>
+    <SandboxFolder>C:\\Scripts</SandboxFolder>
+    <ReadOnly>true</ReadOnly>
+  </MappedFolder>
+"""
+
+    if save_path and os.path.exists(save_path):
+        # Infer relative path from User Profile
+        user_profile = os.environ['USERPROFILE']
+        try:
+            if os.path.commonpath([user_profile, save_path]) == os.path.normpath(user_profile):
+                rel_save = os.path.relpath(save_path, user_profile)
+                guest_save = f"%USERPROFILE%\\{rel_save}"
+                
+                # Add mapping for saves
+                mapped_folders_xml += f"""
+  <MappedFolder>
+    <HostFolder>{os.path.abspath(save_path)}</HostFolder>
+    <SandboxFolder>C:\\Saves</SandboxFolder>
+    <ReadOnly>false</ReadOnly>
+  </MappedFolder>
+"""
+                restore_cmd = f'echo Restoring Saves... && xcopy "C:\\Saves" "{guest_save}" /E /I /Y /Q'
+                backup_cmd = f'echo Backing up Saves... && xcopy "{guest_save}" "C:\\Saves" /E /I /Y /Q'
+        except Exception as e:
+            logger.warning(f"Save path calculation error: {e}")
+
+    # Create Launcher Batch File
+    bat_content = f"""@echo off
+echo Preparing Sandbox Environment...
+{restore_cmd}
+echo Launching Game...
+cd /d C:\\Game
+{game_cmd}
+echo Game Closed. Syncing Data...
+{backup_cmd}
+echo Done. You can close the Sandbox now.
+pause
+"""
+    
+    bat_path = os.path.join(sandbox_script_dir, "launch.bat")
+    with open(bat_path, "w") as f:
+        f.write(bat_content)
+
+    # Create .wsb content
+    wsb_content = f"""<Configuration>
+<MappedFolders>
+{mapped_folders_xml}
 </MappedFolders>
 <LogonCommand>
-  <Command>C:\\Game\\{exe_rel_path}</Command>
+  <Command>C:\\Scripts\\launch.bat</Command>
 </LogonCommand>
 </Configuration>"""
 
@@ -1607,16 +1659,15 @@ async def launch_in_sandbox(game_id: str):
         f.write(wsb_content)
 
     try:
-        # Explicitly run WindowsSandbox.exe with the config
         subprocess.Popen(["WindowsSandbox.exe", wsb_path])
-        return {"status": "sandbox_launched", "warning": "Saves and data changes inside the sandbox will NOT be persisted to your real system."}
+        return {"status": "sandbox_launched", "warning": "Save Sync Active: Close the GAME first, wait for sync, then close Sandbox."}
     except Exception as e:
         logger.error(f"Sandbox launch error: {e}")
         try:
             os.startfile(wsb_path)
-            return {"status": "sandbox_launched_fallback", "warning": "Saves and data changes inside the sandbox will NOT be persisted to your real system."}
+            return {"status": "sandbox_launched_fallback", "warning": "Fallback launch used."}
         except Exception as e2:
-            raise HTTPException(status_code=500, detail=f"Failed to start Windows Sandbox: {e}. Fallback error: {e2}")
+            raise HTTPException(status_code=500, detail=f"Failed: {e}")
 
 @app.post("/api/launch/{game_id}")
 async def launch_game(game_id: str):
