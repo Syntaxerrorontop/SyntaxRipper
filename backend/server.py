@@ -1712,6 +1712,7 @@ async def get_library():
             
             library.append(enrich_game({
                 "id": game_id,
+                "metadata_id": info.get("metadata_id"),
                 "name": info.get("alias", folder_name),
                 "version": info.get("version", "Local"),
                 "latest_version": info.get("latest_version", ""),
@@ -1736,6 +1737,7 @@ async def get_library():
 
             library.append(enrich_game({
                 "id": game_id,
+                "metadata_id": info.get("metadata_id"),
                 "name": info.get("alias", game_id),
                 "version": info.get("version", "N/A"),
                 "link": info.get("link", ""),
@@ -1757,13 +1759,17 @@ async def get_library():
                 # Check for cached HLTB data in config
                 hltb_cache = None
                 config_entry = config_games.get(f"ext_{g['name']}")
-                if config_entry and "hltb" in config_entry:
-                    hltb_cache = config_entry["hltb"]
+                meta_id = None
+                if config_entry:
+                    if "hltb" in config_entry:
+                        hltb_cache = config_entry["hltb"]
+                    meta_id = config_entry.get("metadata_id")
                 
                 is_hidden = config_entry.get("hidden", False) if config_entry else False
 
                 game_obj = enrich_game({
                     "id": f"ext_{g['name']}",
+                    "metadata_id": meta_id,
                     "name": g['name'],
                     "version": g['version'],
                     "exe": g['exe'],
