@@ -351,6 +351,60 @@ function renderSettings() {
     }
 
     loadToolsStatus();
+    checkSandboxStatus();
+}
+
+async function checkSandboxStatus() {
+    const card = document.getElementById('sandbox-card');
+    const content = document.getElementById('sandbox-status-content');
+    if (!card || !content) return;
+
+    try {
+        const res = await fetch(`${API_URL}/api/settings/sandbox/status`);
+        const status = await res.json();
+
+        if (status.is_pro) {
+            card.style.display = 'block';
+            if (status.enabled) {
+                content.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px;">
+                        <span style="color: #28a745; font-weight: bold;">✔ Windows Sandbox is enabled</span>
+                    </div>
+                `;
+            } else {
+                content.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px;">
+                        <span>Windows Sandbox is disabled</span>
+                        <button class="btn btn-primary" onclick="enableSandbox()" style="padding: 4px 10px; font-size: 12px;">Enable via PowerShell</button>
+                    </div>
+                `;
+            }
+        } else {
+            card.style.display = 'none';
+        }
+    } catch (e) {
+        console.error("Failed to check sandbox status", e);
+        card.style.display = 'none';
+    }
+}
+
+async function enableSandbox() {
+    if (!await showConfirm("Enable Windows Sandbox", "This will attempt to enable the Windows Sandbox feature using PowerShell. It requires Administrator privileges and a system restart. Proceed?", false)) return;
+    
+    try {
+        showToast("Enabling Sandbox... Please wait.", "info");
+        const res = await fetch(`${API_URL}/api/settings/sandbox/enable`, { method: 'POST' });
+        const result = await res.json();
+
+        if (result.success) {
+            await showAlert("Success", result.message);
+            checkSandboxStatus();
+        } else {
+            await showAlert("Error", result.message);
+        }
+    } catch (e) {
+        await showAlert("Error", "Failed to enable sandbox: " + e.message);
+    }
 }
 
 async function loadToolsStatus() {

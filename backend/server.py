@@ -44,6 +44,7 @@ from src.utility.compression import GameCompressor
 from src.utility.integrity import IntegrityChecker
 from src.utility.junk_cleaner import JunkCleaner
 from src.utility.media_converter import MediaConverter
+from src.utility.sandbox import is_windows_11_pro, is_sandbox_enabled, enable_sandbox
 
 # Configure logging
 log_file = os.path.join(APPDATA_CACHE_PATH, "server.log")
@@ -1215,6 +1216,22 @@ async def resume_download():
 @app.get("/api/version")
 async def get_version():
     return {"version": APP_VERSION}
+
+@app.get("/api/settings/sandbox/status")
+def get_sandbox_status():
+    """Checks if the user has Windows 11 Pro and if Sandbox is enabled."""
+    is_pro = is_windows_11_pro()
+    enabled = is_sandbox_enabled() if is_pro else False
+    return {"is_pro": is_pro, "enabled": enabled}
+
+@app.post("/api/settings/sandbox/enable")
+def post_enable_sandbox():
+    """Attempts to enable Windows Sandbox."""
+    if not is_windows_11_pro():
+        return {"success": False, "message": "Windows 11 Pro is required."}
+    
+    success, message = enable_sandbox()
+    return {"success": success, "message": message}
 
 @app.get("/api/settings")
 def get_settings():
