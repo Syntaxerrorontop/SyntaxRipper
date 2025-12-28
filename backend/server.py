@@ -1533,9 +1533,9 @@ def process_sandbox_detection(game_id, scan_dir, exe_name):
     logger.info(f"Waiting for sandbox detection log for {game_id}...")
     log_path = os.path.join(scan_dir, "sandbox_log.csv")
     
-    # Wait up to 10 minutes
+    # Wait up to 60 minutes
     start_time = time.time()
-    while time.time() - start_time < 600:
+    while time.time() - start_time < 3600:
         if os.path.exists(log_path):
             # Wait for file write to finish (size stable)
             last_size = -1
@@ -1612,7 +1612,7 @@ async def run_game_setup(game_id: str):
     raise HTTPException(status_code=404, detail="No setup file or ISO found.")
 
 @app.post("/api/game/{game_id}/sandbox")
-async def launch_in_sandbox(game_id: str, detect: bool = False):
+async def launch_in_sandbox(game_id: str, detect: bool = True):
     """Generates a Windows Sandbox configuration. Supports Save Sync and Detection."""
     config_games = load_json(os.path.join(CONFIG_FOLDER, "games.json"))
     if game_id not in config_games:
