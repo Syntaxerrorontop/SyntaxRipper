@@ -110,6 +110,9 @@ def run_metadata_scan():
     logger.info(f"Found {len(names_to_scan)} unique games to check for metadata.")
     
     for name in names_to_scan:
+        # User requested to only fetch missing metadata on startup, not force update
+        if metadata_fetcher.cache and name.lower().strip() in metadata_fetcher.cache:
+            continue
         metadata_queue.put(name)
 
 def metadata_worker():
