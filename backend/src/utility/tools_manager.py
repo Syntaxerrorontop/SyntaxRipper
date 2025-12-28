@@ -15,13 +15,6 @@ TOOLS_CONFIG = {
         "subfolder": "aria2",
         "is_zip": True
     },
-    "unrar": {
-        "name": "UnRAR (Unpacker)",
-        "url": "https://www.rarlab.com/rar/unrarw64.exe", # Self-extracting installer
-        "check_file": "UnRAR.exe",
-        "subfolder": "unrar",
-        "is_zip": False # It's a self-extractor, but we can extract it or run it
-    },
     "ffmpeg": {
         "name": "FFmpeg",
         "url": "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip",
@@ -95,18 +88,6 @@ class ToolsManager:
                 for root, dirs, files in os.walk(base):
                     if "ffmpeg.exe" in files:
                         return os.path.join(root, "ffmpeg.exe")
-            return None
-        elif key == "unrar":
-            # Check system path first
-            import shutil
-            sys_path = shutil.which("unrar")
-            if sys_path: return sys_path
-            
-            base = os.path.join(self.tools_dir, "unrar")
-            if os.path.exists(base):
-                for root, dirs, files in os.walk(base):
-                    if "UnRAR.exe" in files:
-                        return os.path.join(root, "UnRAR.exe")
             return None
         elif key == "vc_redist":
             # Check for EXE first (common in newer repack zips)
@@ -187,7 +168,7 @@ class ToolsManager:
                     # Clean up empty folders? Optional, but safer to leave or delete specifically if known
             
             # Post-processing
-            if key in ["ffmpeg", "aria2", "unrar"]:
+            if key in ["ffmpeg", "aria2"]:
                 # Rename temp folder to final
                 final_dir = os.path.join(self.tools_dir, key)
                 if os.path.exists(final_dir): shutil.rmtree(final_dir)
