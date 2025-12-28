@@ -15,6 +15,7 @@ import json
 import re
 import urllib.parse
 import queue
+import subprocess
 from contextlib import asynccontextmanager
 
 # Force UTF-8 for stdout/stderr to handle emojis on Windows
