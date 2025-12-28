@@ -1659,26 +1659,32 @@ async def launch_in_sandbox(game_id: str, detect: bool = True):
     exe_name = "unknown.exe"
     
     # Calculate Game Command
+    # 1. Resolve relative exe path
+    if exe_path and not os.path.isabs(exe_path):
+        exe_path = os.path.join(game_folder, exe_path)
+
     if exe_path and os.path.exists(exe_path):
         try:
-            from pathlib import Path
-            p_game = Path(game_folder).resolve()
-            p_exe = Path(exe_path).resolve()
+            # 2. Robust string-based containment check
+            gf_norm = os.path.normpath(game_folder).lower()
+            ex_norm = os.path.normpath(exe_path).lower()
             
-            # Check if exe is inside game folder (or is the folder itself? unlikely)
-            # is_relative_to is Python 3.9+, use try/except relative_to
-            try:
-                rel = p_exe.relative_to(p_game)
-                rel_dir = rel.parent
-                exe_name = rel.name
+            # Ensure folder has trailing slash for prefix check
+            if not gf_norm.endswith(os.sep):
+                gf_norm += os.sep
+                
+            if ex_norm.startswith(gf_norm):
+                rel = os.path.relpath(exe_path, game_folder)
+                rel_dir = os.path.dirname(rel)
+                exe_name = os.path.basename(rel)
                 
                 # Construct working directory inside sandbox
                 work_dir = r"C:\Game"
-                if str(rel_dir) != ".":
+                if rel_dir and rel_dir != ".":
                     work_dir = f"C:\\Game\\{rel_dir}"
                 
                 game_cmd = f'start /wait /MAX /D "{work_dir}" "" "{exe_name}" -fullscreen'
-            except ValueError:
+            else:
                 logger.warning(f"Sandbox: Exe {exe_path} is not inside game folder {game_folder}")
         except Exception as e: 
             logger.warning(f"Sandbox path calc error: {e}")
