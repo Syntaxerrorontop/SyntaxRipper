@@ -246,13 +246,18 @@ function updateFooterStatus(status) {
 }
 
 async function fetchVersion() {
-    try {
-        const res = await fetch(`${API_URL}/api/version`);
-        const data = await res.json();
-        // Assume footer has a span for version
-        const vEl = document.querySelector('#footer span:nth-child(2)'); 
-        if (vEl) vEl.textContent = `V${data.version}`;
-    } catch(e) {}
+    for (let i = 0; i < 5; i++) {
+        try {
+            const res = await fetch(`${API_URL}/api/version`);
+            if (res.ok) {
+                const data = await res.json();
+                const vEl = document.querySelector('#footer span:nth-child(2)'); 
+                if (vEl) vEl.textContent = `V${data.version}`;
+                return;
+            }
+        } catch(e) {}
+        await new Promise(r => setTimeout(r, 500));
+    }
 }
 
 // --- Navigation ---
@@ -1977,6 +1982,7 @@ function closeBPModal() {
 
 // Init
 connectWebSocket();
+fetchVersion();
 // Load settings first, then library to ensure state is ready
 loadSettings().then(() => {
     switchTab('library');
