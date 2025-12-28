@@ -927,6 +927,22 @@ async function runJunkClean() {
     } catch(e) { await showAlert("Error", e.message); }
 }
 
+async function detectSavesInSandbox() {
+    if (!currentSettingsGameId) return;
+    if (!await showConfirm("Detect Saves in Sandbox", "This will launch the game in Windows Sandbox with Process Monitor to detect save locations. \n\nINSTRUCTIONS:\n1. Play until the game saves (reach a checkpoint or manual save).\n2. EXIT the game normally inside the Sandbox.\n3. The Sandbox will close and results will be analyzed.\n\nContinue?", false)) return;
+    
+    try {
+        const res = await fetch(`${API_URL}/api/game/${currentSettingsGameId}/sandbox?detect=true`, { method: 'POST' });
+        const data = await res.json();
+        
+        if (res.ok) {
+            await showAlert("Started", "Sandbox launching... \nRemember to CLOSE THE GAME inside the sandbox to finish detection.");
+        } else {
+            await showAlert("Error", data.detail);
+        }
+    } catch(e) { await showAlert("Error", e.message); }
+}
+
 async function refetchMetadata() {
     const query = document.getElementById('gs-metadata-query').value.trim();
     if (!currentSettingsGameId || !query) return;

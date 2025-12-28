@@ -1527,6 +1527,58 @@ async def trigger_update_check():
     threading.Thread(target=check_updates_task, daemon=True).start()
     return {"status": "started"}
 
+def process_sandbox_detection(game_id, scan_dir, exe_name):
+    """Watches for sandbox_log.csv and runs detection."""
+    logger.info(f"Waiting for sandbox detection log for {game_id}...")
+    log_path = os.path.join(scan_dir, "sandbox_log.csv")
+    
+    # Wait up to 10 minutes
+    start_time = time.time()
+    while time.time() - start_time < 600:
+        if os.path.exists(log_path):
+            # Wait for file write to finish (size stable)
+            last_size = -1
+            stable_count = 0
+            while stable_count < 3:
+                try:
+                    current_size = os.path.getsize(log_path)
+                    if current_size == last_size and current_size > 0:
+                        stable_count += 1
+                    else:
+                        last_size = current_size
+                        stable_count = 0
+                except: pass
+                time.sleep(1)
+            
+            logger.info("Log file found and stable. Parsing...")
+            try:
+                detector = SavePathDetector()
+                candidates = detector._parse_log(log_path, exe_name)
+                
+                if candidates:
+                    logger.info(f"Sandbox detection found candidates: {candidates}")
+                    config_path = os.path.join(CONFIG_FOLDER, "games.json")
+                    data = load_json(config_path)
+                    if game_id in data:
+                        data[game_id]["save_path"] = candidates[0]
+                        data[game_id]["save_candidates"] = candidates
+                        save_json(config_path, data)
+                        broadcast_event("complete", {"message": f"Save path detected: {candidates[0]}"})
+                else:
+                    logger.warning("No save paths detected in sandbox log.")
+                    broadcast_event("error", "No save paths detected.")
+            except Exception as e:
+                logger.error(f"Detection parse error: {e}")
+            
+            # Cleanup
+            try: os.remove(log_path)
+            except: pass
+            return
+            
+        time.sleep(2)
+    
+    logger.warning("Sandbox detection timed out.")
+
 @app.post("/api/game/{game_id}/setup")
 async def run_game_setup(game_id: str):
     """Searches for and runs a Setup.exe/ISO in the game's folder."""
@@ -1559,8 +1611,8 @@ async def run_game_setup(game_id: str):
     raise HTTPException(status_code=404, detail="No setup file or ISO found.")
 
 @app.post("/api/game/{game_id}/sandbox")
-async def launch_in_sandbox(game_id: str):
-    """Generates a Windows Sandbox configuration with Save Sync and launches it."""
+async def launch_in_sandbox(game_id: str, detect: bool = False):
+    """Generates a Windows Sandbox configuration. Supports Save Sync and Detection."""
     config_games = load_json(os.path.join(CONFIG_FOLDER, "games.json"))
     if game_id not in config_games:
         raise HTTPException(status_code=404, detail="Game not found")
@@ -1573,26 +1625,37 @@ async def launch_in_sandbox(game_id: str):
     exe_path = info.get("exe", "")
     save_path = info.get("save_path", "")
     
-    # 1. Prepare Script Directory
+    # 1. Prepare Script/Log Directory
+    # We use this for scripts AND for dumping the procmon log if detecting
     sandbox_script_dir = os.path.join(CACHE_FOLDER, "sandbox_tmp")
     if not os.path.exists(sandbox_script_dir): os.makedirs(sandbox_script_dir)
     
+    # Clean old logs
+    if detect:
+        try:
+            for f in ["sandbox_log.csv", "log.pml"]:
+                p = os.path.join(sandbox_script_dir, f)
+                if os.path.exists(p): os.remove(p)
+        except: pass
+
     # 2. Determine Guest Paths & Script Content
     game_cmd = "explorer.exe C:\\Game"
     restore_cmd = "REM No Save Path Detected"
     backup_cmd = "REM No Save Path Detected"
     
+    exe_name = "unknown.exe"
+    
     # Calculate Game Command
     if exe_path and os.path.exists(exe_path):
+        exe_name = os.path.basename(exe_path)
         try:
             if os.path.commonpath([game_folder, exe_path]) == os.path.normpath(game_folder):
                 rel = os.path.relpath(exe_path, game_folder)
-                # Use start /wait to block execution so we can backup afterwards
-                # Attempt fullscreen flag
+                # Launch maximized
                 game_cmd = f'start /wait /MAX "" "C:\\Game\\{rel}" -fullscreen'
         except: pass
 
-    # Calculate Save Sync and Mappings
+    # Calculate Mappings
     mapped_folders_xml = f"""
   <MappedFolder>
     <HostFolder>{os.path.abspath(game_folder)}</HostFolder>
@@ -1602,19 +1665,39 @@ async def launch_in_sandbox(game_id: str):
   <MappedFolder>
     <HostFolder>{os.path.abspath(sandbox_script_dir)}</HostFolder>
     <SandboxFolder>C:\\Scripts</SandboxFolder>
+    <ReadOnly>false</ReadOnly>
+  </MappedFolder>
+"""
+    # Note: C:\Scripts is mapped R/W so we can write the log there if detecting. 
+    # Or we can map C:\Saves there. Let's reuse C:\Scripts as the dump location for simplicity in detection mode.
+
+    if detect:
+        # Map Tools for Procmon
+        tools_path = os.path.join(APPDATA_CACHE_PATH, "Tools")
+        if os.path.exists(tools_path):
+             mapped_folders_xml += f"""
+  <MappedFolder>
+    <HostFolder>{os.path.abspath(tools_path)}</HostFolder>
+    <SandboxFolder>C:\\Tools</SandboxFolder>
     <ReadOnly>true</ReadOnly>
   </MappedFolder>
 """
+        # Detection Commands
+        restore_cmd = 'echo Starting Procmon... && start /min "" "C:\\Tools\\Procmon.exe" /BackingFile "C:\\Scripts\\log.pml" /AcceptEula /Quiet'
+        # After game closes:
+        backup_cmd = 'echo Exporting Log... && "C:\\Tools\\Procmon.exe" /Terminate && timeout /t 2 && "C:\\Tools\\Procmon.exe" /OpenLog "C:\\Scripts\\log.pml" /SaveAs "C:\\Scripts\\sandbox_log.csv" /AcceptEula /Quiet'
+        
+        # Start Host Watcher
+        threading.Thread(target=process_sandbox_detection, args=(game_id, sandbox_script_dir, exe_name), daemon=True).start()
 
-    if save_path and os.path.exists(save_path):
-        # Infer relative path from User Profile
+    elif save_path and os.path.exists(save_path):
+        # Normal Save Sync Logic
         user_profile = os.environ['USERPROFILE']
         try:
             if os.path.commonpath([user_profile, save_path]) == os.path.normpath(user_profile):
                 rel_save = os.path.relpath(save_path, user_profile)
                 guest_save = f"%USERPROFILE%\\{rel_save}"
                 
-                # Add mapping for saves
                 mapped_folders_xml += f"""
   <MappedFolder>
     <HostFolder>{os.path.abspath(save_path)}</HostFolder>
@@ -1634,7 +1717,7 @@ echo Preparing Sandbox Environment...
 echo Launching Game...
 cd /d C:\\Game
 {game_cmd}
-echo Game Closed. Syncing Data...
+echo Game Closed. Post-processing...
 {backup_cmd}
 echo Done. You can close the Sandbox now.
 pause
@@ -1660,7 +1743,8 @@ pause
 
     try:
         subprocess.Popen(["WindowsSandbox.exe", wsb_path])
-        return {"status": "sandbox_launched", "warning": "Save Sync Active: Close the GAME first, wait for sync, then close Sandbox."}
+        msg = "Detection active. Close game to finish." if detect else "Save Sync Active: Close the GAME first, wait for sync, then close Sandbox."
+        return {"status": "sandbox_launched", "warning": msg}
     except Exception as e:
         logger.error(f"Sandbox launch error: {e}")
         try:
