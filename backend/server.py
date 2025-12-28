@@ -553,6 +553,31 @@ class UpdateGameSettingsRequest(BaseModel):
     args: list[str] = []
     save_path: str = ""
     tags: list[str] = []
+    metadata_id: str = ""
+
+class RefetchMetadataRequest(BaseModel):
+    query: str
+
+@app.post("/api/game/{game_id}/metadata/refetch")
+async def refetch_metadata(game_id: str, request: RefetchMetadataRequest):
+    """Updates the metadata query name and immediately fetches fresh data."""
+    config_path = os.path.join(CONFIG_FOLDER, "games.json")
+    data = load_json(config_path)
+    
+    if game_id not in data:
+        raise HTTPException(status_code=404, detail="Game not found")
+        
+    # Update config
+    data[game_id]["metadata_id"] = request.query
+    save_json(config_path, data)
+    
+    if not metadata_fetcher:
+        raise HTTPException(status_code=503, detail="Metadata fetcher not ready")
+        
+    # Fetch (blocking)
+    meta = metadata_fetcher.get_metadata(request.query, cached_only=False)
+    
+    return {"status": "updated", "meta": meta}
 
 @app.get("/api/game/{game_id}/hltb")
 async def get_hltb_data(game_id: str, refresh: bool = False):
@@ -812,6 +837,8 @@ async def update_game_settings(request: UpdateGameSettingsRequest):
             data[request.id]["tags"] = request.tags
             if request.save_path:
                 data[request.id]["save_path"] = request.save_path
+            if request.metadata_id is not None:
+                data[request.id]["metadata_id"] = request.metadata_id
             save_json(config_path, data)
             return {"status": "updated", "id": request.id}
         else:
@@ -1608,9 +1635,11 @@ async def get_library():
         nonlocal logged_posters
         try:
             if metadata_fetcher:
-                # Look up by name in cache (non-blocking)
-                key = game_obj["name"].lower().strip()
-                meta = metadata_fetcher.get_metadata(game_obj["name"], cached_only=True)
+                # Look up by metadata_id if set, otherwise name
+                lookup_name = game_obj.get("metadata_id") or game_obj["name"]
+                key = lookup_name.lower().strip()
+                
+                meta = metadata_fetcher.get_metadata(lookup_name, cached_only=True)
                 
                 if meta:
                     # Merge all metadata fields
@@ -1630,9 +1659,9 @@ async def get_library():
                         logged_posters += 1
                 else:
                     # Not in cache, queue for background fetch
-                    if metadata_fetcher.api_key and game_obj["name"] not in queued_metadata:
-                        queued_metadata.add(game_obj["name"])
-                        metadata_queue.put(game_obj["name"])
+                    if metadata_fetcher.api_key and lookup_name not in queued_metadata:
+                        queued_metadata.add(lookup_name)
+                        metadata_queue.put(lookup_name)
             
             # Detect Theme Music
             if "path" in game_obj and os.path.exists(game_obj["path"]):

@@ -29,11 +29,9 @@ class MetadataFetcher:
             return True
         
         data = self.cache[norm_name]
-        if not data or not data.get("banner"):
-            return True
-            
         last_upd = data.get("last_updated", 0)
         cooldown = 10 * 24 * 3600 # 10 days
+        
         if time.time() - last_upd > cooldown:
             return True
             
@@ -90,26 +88,17 @@ class MetadataFetcher:
                 last_upd = data.get("last_updated", 0)
                 cooldown = 10 * 24 * 3600 # 10 days in seconds
                 if time.time() - last_upd < cooldown:
-                    # Data is fresh enough, check if banner exists to verify basic completeness
-                    if data.get("banner"):
-                        return data
-
-            # Check if valid data
-            if data.get("banner"):
-                # If cached_only is True, we return whatever we have to keep UI fast
-                if cached_only:
                     return data
 
-                # VALIDATION (only for non-cached_only calls): 
-                # Ensure physical assets exist AND screenshots are present in data
-                files_in_dir = os.listdir(game_cache_dir) if os.path.exists(game_cache_dir) else []
-                has_enough_files = len(files_in_dir) >= 3
-                has_screenshots_data = isinstance(data.get("screenshots"), list) and len(data["screenshots"]) > 0
-                
-                if has_enough_files and has_screenshots_data:
-                    return data
-                else:
-                    logger.info(f"Cache incomplete for '{game_name}' (Files: {len(files_in_dir)}, Screenshots: {len(data.get('screenshots', []))}). Re-fetching.")
+            # If cached_only is True, we return whatever we have
+            if cached_only:
+                return data
+
+            # VALIDATION: Check if cache directory exists and is not empty
+            if os.path.exists(game_cache_dir) and os.listdir(game_cache_dir):
+                return data
+            else:
+                 logger.info(f"Cache directory empty for '{game_name}'. Re-fetching.")
         
         if cached_only:
             return None

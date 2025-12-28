@@ -749,6 +749,7 @@ async function openGameSettings(game) {
             document.getElementById('gs-post-script').value = fullData.post_exit_script || "";
             document.getElementById('gs-save-path').value = fullData.save_path || "";
             document.getElementById('gs-tags').value = (fullData.tags || []).join(', ');
+            document.getElementById('gs-metadata-query').value = fullData.metadata_id || "";
             
             const candidateSelect = document.getElementById('gs-save-candidates');
             const candidates = fullData.save_candidates || [];
@@ -886,6 +887,39 @@ async function runJunkClean() {
     } catch(e) { await showAlert("Error", e.message); }
 }
 
+async function refetchMetadata() {
+    const query = document.getElementById('gs-metadata-query').value.trim();
+    if (!currentSettingsGameId || !query) return;
+    
+    const btn = document.querySelector('#gs-metadata-section button');
+    const originalText = btn.textContent;
+    btn.textContent = "Fetching...";
+    btn.disabled = true;
+    
+    try {
+        const res = await fetch(`${API_URL}/api/game/${currentSettingsGameId}/metadata/refetch`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ query: query })
+        });
+        
+        if (res.ok) {
+            showToast("Metadata updated!", "success");
+            await refreshLibrary();
+            // Refresh details immediately to show new images
+            if (selectedGameId === currentSettingsGameId) showDetails(selectedGameId);
+        } else {
+            const err = await res.json();
+            showToast(`Failed: ${err.detail}`, "error");
+        }
+    } catch(e) {
+        showToast(`Error: ${e.message}`, "error");
+    } finally {
+        btn.textContent = originalText;
+        btn.disabled = false;
+    }
+}
+
 async function saveGameSettings() {
     if (!currentSettingsGameId) return;
     
@@ -896,13 +930,20 @@ async function saveGameSettings() {
     const tags = document.getElementById('gs-tags').value.split(',').map(t => t.trim()).filter(t => t.length > 0);
     const pre = document.getElementById('gs-pre-script').value;
     const post = document.getElementById('gs-post-script').value;
+    const metaId = document.getElementById('gs-metadata-query').value.trim();
     
     try {
         // Save Settings
         await fetch(`${API_URL}/api/library/update_settings`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ id: currentSettingsGameId, alias, exe, args, save_path: savePath, tags: tags })
+            body: JSON.stringify({ 
+                id: currentSettingsGameId, 
+                alias, exe, args, 
+                save_path: savePath, 
+                tags: tags,
+                metadata_id: metaId
+            })
         });
         
         // Save Scripts

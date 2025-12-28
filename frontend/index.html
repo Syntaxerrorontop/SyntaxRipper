@@ -1343,6 +1343,15 @@
                         <ul id="gs-backup-list" class="path-list" style="max-height: 100px; margin-bottom: 0;"></ul>
                     </div>
 
+                    <div id="gs-metadata-section" style="border-top: 1px solid #333; padding-top: 15px; margin-top: 10px;">
+                        <label style="margin-bottom: 10px; display: block;">Fix Metadata</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="gs-metadata-query" placeholder="Enter original game name..." style="flex: 1; padding: 10px; background: #161616; border: 1px solid #333; color: white; border-radius: 6px; box-sizing: border-box;">
+                            <button class="btn btn-primary" onclick="refetchMetadata()" style="padding: 0 15px;">Fetch</button>
+                        </div>
+                        <p class="hint">If metadata is incorrect, enter the exact game name here to re-fetch.</p>
+                    </div>
+
                     <div id="gs-maintenance-section" style="border-top: 1px solid #333; padding-top: 15px; margin-top: 10px;">
                         <label style="margin-bottom: 10px; display: block;">Maintenance Tools</label>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
