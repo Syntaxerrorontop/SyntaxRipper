@@ -1219,46 +1219,43 @@ function showDetails(gameId) {
             actions.appendChild(upbtn);
         }
         
-        // Setup Wizard Button
-        const setupBtn = document.createElement('button');
-        setupBtn.className = 'btn btn-secondary';
-        setupBtn.style.marginLeft = '10px';
-        setupBtn.textContent = 'Setup';
-        setupBtn.onclick = async () => {
-             if (await showConfirm("Run Setup", "Search for and run Setup.exe or Mount ISO in game folder?", false)) {
-                 try {
-                     const res = await fetch(`${API_URL}/api/game/${game.id}/setup`, { method: 'POST' });
-                     if (res.ok) showToast("Setup started!", "success");
-                     else showToast("No setup file found.", "error");
-                 } catch(e) { showToast(e.message, "error"); }
-             }
-        };
-        actions.appendChild(setupBtn);
-
-        // Sandbox Button
-        const sandboxBtn = document.createElement('button');
-        sandboxBtn.className = 'btn btn-secondary';
-        sandboxBtn.style.marginLeft = '10px';
-        sandboxBtn.innerHTML = '🛡️ Sandbox';
-        sandboxBtn.onclick = async () => {
-            if (await showConfirm("Launch in Sandbox", "WARNING: Saves will NOT be saved to your PC. Continue?", false)) {
-                try {
-                    const res = await fetch(`${API_URL}/api/game/${game.id}/sandbox`, { method: 'POST' });
-                    const data = await res.json();
-                    if (res.ok) showToast("Sandbox launched!", "success");
-                    else showAlert("Sandbox Error", data.detail);
-                } catch(e) { showToast(e.message, "error"); }
-            }
-        };
-        actions.appendChild(sandboxBtn);
-
         if (!game.id.startsWith("ext_")) {
+            // Setup Wizard Button
+            const setupBtn = document.createElement('button');
+            setupBtn.className = 'btn btn-secondary';
+            setupBtn.style.marginLeft = '10px';
+            setupBtn.textContent = 'Setup';
+            setupBtn.onclick = async () => {
+                 if (await showConfirm("Run Setup", "Search for and run Setup.exe or Mount ISO in game folder?", false)) {
+                     try {
+                         const res = await fetch(`${API_URL}/api/game/${game.id}/setup`, { method: 'POST' });
+                         if (res.ok) showToast("Setup started!", "success");
+                         else showToast("No setup file found.", "error");
+                     } catch(e) { showToast(e.message, "error"); }
+                 }
+            };
+            actions.appendChild(setupBtn);
+
+            // Sandbox Button
+            const sandboxBtn = document.createElement('button');
+            sandboxBtn.className = 'btn btn-secondary';
+            sandboxBtn.style.marginLeft = '10px';
+            sandboxBtn.innerHTML = '🛡️ Sandbox';
+            sandboxBtn.onclick = async () => {
+                if (await showConfirm("Launch in Sandbox", "WARNING: Saves will NOT be saved to your PC. Continue?", false)) {
+                    try {
+                        const res = await fetch(`${API_URL}/api/game/${game.id}/sandbox`, { method: 'POST' });
+                        const data = await res.json();
+                        if (res.ok) showToast("Sandbox launched!", "success");
+                        else showAlert("Sandbox Error", data.detail);
+                    } catch(e) { showToast(e.message, "error"); }
+                }
+            };
+            actions.appendChild(sandboxBtn);
+
             const fbtn = document.createElement('button'); fbtn.className = 'btn btn-secondary'; fbtn.textContent = 'Folder'; fbtn.onclick = () => openFolder(game.id); actions.appendChild(fbtn);
             const ubtn = document.createElement('button'); ubtn.className = 'btn btn-danger'; ubtn.textContent = 'Uninstall'; ubtn.style.marginLeft = '10px';
             ubtn.onclick = () => { uninstallGame(game.id, game.name); closeDetails(); }; actions.appendChild(ubtn);
-        } else {
-            const rbtn = document.createElement('button'); rbtn.className = 'btn btn-secondary'; rbtn.textContent = 'Remove'; rbtn.style.marginLeft = '10px';
-            rbtn.onclick = () => { removeLibraryGame(game.id, game.name); closeDetails(); }; actions.appendChild(rbtn);
         }
     } else {
         const ibtn = document.createElement('button'); ibtn.className = 'btn btn-primary'; ibtn.textContent = 'INSTALL'; ibtn.onclick = () => startDownload(game.link || '', game.name); actions.appendChild(ibtn);
