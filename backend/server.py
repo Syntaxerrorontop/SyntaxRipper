@@ -1760,8 +1760,15 @@ if not exist "C:\\Game" (
 )
 echo Preparing Sandbox Environment...
 {restore_cmd}
-echo Launching Game...
+echo DEBUG: Listing Game Directory...
+dir /s /b "C:\\Game"
+echo Launching Game Command:
+echo {game_cmd}
 {game_cmd}
+if %errorlevel% neq 0 (
+    echo [ERROR] Launch Failed with Error Code %errorlevel%
+    pause
+)
 echo Game Closed. Post-processing...
 {backup_cmd}
 echo Done. You can close the Sandbox now.
