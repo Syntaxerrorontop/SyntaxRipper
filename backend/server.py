@@ -1661,23 +1661,24 @@ async def launch_in_sandbox(game_id: str, detect: bool = True):
     # Calculate Game Command
     if exe_path and os.path.exists(exe_path):
         try:
-            # Case-insensitive check for path containment
-            gf_abs = os.path.abspath(game_folder).lower()
-            ex_abs = os.path.abspath(exe_path).lower()
+            from pathlib import Path
+            p_game = Path(game_folder).resolve()
+            p_exe = Path(exe_path).resolve()
             
-            if ex_abs.startswith(gf_abs):
-                rel = os.path.relpath(exe_path, game_folder)
-                rel_dir = os.path.dirname(rel)
-                exe_name = os.path.basename(rel)
+            # Check if exe is inside game folder (or is the folder itself? unlikely)
+            # is_relative_to is Python 3.9+, use try/except relative_to
+            try:
+                rel = p_exe.relative_to(p_game)
+                rel_dir = rel.parent
+                exe_name = rel.name
                 
                 # Construct working directory inside sandbox
-                work_dir = f"C:\\Game\\{rel_dir}"
-                if work_dir.endswith("\\"): work_dir = work_dir[:-1]
+                work_dir = r"C:\Game"
+                if str(rel_dir) != ".":
+                    work_dir = f"C:\\Game\\{rel_dir}"
                 
-                # Launch with /D to set working directory
-                # Syntax: start /wait /MAX /D "Path" "Title" "Exe" Args
                 game_cmd = f'start /wait /MAX /D "{work_dir}" "" "{exe_name}" -fullscreen'
-            else:
+            except ValueError:
                 logger.warning(f"Sandbox: Exe {exe_path} is not inside game folder {game_folder}")
         except Exception as e: 
             logger.warning(f"Sandbox path calc error: {e}")
@@ -1760,10 +1761,8 @@ if not exist "C:\\Game" (
 )
 echo Preparing Sandbox Environment...
 {restore_cmd}
-echo DEBUG: Listing Game Directory...
-dir /s /b "C:\\Game"
-echo Launching Game Command:
-echo {game_cmd}
+echo Launching Game...
+echo Command: {game_cmd}
 {game_cmd}
 if %errorlevel% neq 0 (
     echo [ERROR] Launch Failed with Error Code %errorlevel%
