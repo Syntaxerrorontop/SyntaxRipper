@@ -1732,6 +1732,12 @@ async def launch_in_sandbox(game_id: str, detect: bool = False):
 
     # Create Launcher Batch File
     bat_content = f"""@echo off
+echo Waiting for drives to mount...
+:WAIT_MOUNT
+if not exist "C:\\Game" (
+    timeout /t 1 >nul
+    goto WAIT_MOUNT
+)
 echo Preparing Sandbox Environment...
 {restore_cmd}
 echo Launching Game...
@@ -1753,7 +1759,7 @@ pause
 {mapped_folders_xml}
 </MappedFolders>
 <LogonCommand>
-  <Command>C:\\Scripts\\launch.bat</Command>
+  <Command>cmd.exe /C start "SandboxLauncher" "C:\\Scripts\\launch.bat"</Command>
 </LogonCommand>
 </Configuration>"""
 
