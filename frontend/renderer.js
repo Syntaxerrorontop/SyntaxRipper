@@ -204,6 +204,13 @@ function handleWsMessage(msg) {
         if (selectedGameId === msg.data.id) {
             updateHLTBDisplay(msg.data.data);
         }
+    } else if (msg.type === 'running_games') {
+        runningGames = msg.data.running || [];
+        // Refresh details if currently viewing a game that changed state
+        if (selectedGameId) showDetails(selectedGameId);
+    } else if (msg.type === 'download_status') {
+        updateDownloadUI(msg.data);
+        renderDownloadQueue(msg.data.queue || [], msg.data.hash);
     }
 }
 
@@ -462,7 +469,7 @@ async function cleanDownloadCache() {
     try {
         const res = await fetch(`${API_URL}/api/download/cache/clean`, { method: 'POST' });
         const data = await res.json();
-        if (res.ok) { await showAlert("Success", `Download cache cleaned! Removed ${data.count} items.`); pollDownloadStatus(); }
+        if (res.ok) { await showAlert("Success", `Download cache cleaned! Removed ${data.count} items.`); }
     } catch(e) { await showAlert("Error", e.message); }
 }
 
@@ -1271,32 +1278,7 @@ function renderSearchResults(results, category) {
 }
 
 // --- Downloads ---
-let downloadPollInterval = null;
-function startPollingStatus() { if (downloadPollInterval) clearInterval(downloadPollInterval); downloadPollInterval = setInterval(pollDownloadStatus, 1000); }
-function stopPollingStatus() { if (downloadPollInterval) { clearInterval(downloadPollInterval); downloadPollInterval = null; } }
-
-async function pollDownloadStatus() {
-    try {
-        const res = await fetch(`${API_URL}/api/download/status`);
-        const status = await res.json();
-        updateDownloadUI(status);
-        renderDownloadQueue(status.queue || [], status.hash);
-    } catch(e) { console.error("Poll error", e); }
-}
-
-async function pollRunningGames() {
-    try {
-        const res = await fetch(`${API_URL}/api/running-games`);
-        const data = await res.json();
-        const oldRunning = JSON.stringify(runningGames);
-        runningGames = data.running || [];
-        
-        // Refresh details if currently viewing a game that changed state
-        if (selectedGameId && oldRunning !== JSON.stringify(runningGames)) {
-            showDetails(selectedGameId);
-        }
-    } catch(e) {}
-}
+// Polling removed in favor of WebSocket 'download_status' events.
 
 function updateDownloadUI(status) {
     const titleEl = document.getElementById('dl-title'), statusTextEl = document.getElementById('dl-status-text'), progressFill = document.getElementById('dl-progress-fill'), dlStatus = document.getElementById('dl-status'), dlSpeed = document.getElementById('dl-speed'), dlRemaining = document.getElementById('dl-remaining'), dlSizeInfo = document.getElementById('dl-size-info'), pauseBtn = document.getElementById('pause-btn'), cancelBtn = document.getElementById('cancel-btn');
@@ -1318,7 +1300,7 @@ function updateDownloadUI(status) {
 async function startDownload(url, title) {
     const finalUrl = url || this.dataset.url, finalTitle = title || this.dataset.title; if (!finalUrl) return; 
     switchTab('downloads');
-    try { await fetch(`${API_URL}/api/download`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url: finalUrl, alias: finalTitle}) }); startPollingStatus(); } catch(e) {}
+    try { await fetch(`${API_URL}/api/download`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url: finalUrl, alias: finalTitle}) }); } catch(e) {}
 }
 
 async function addToLibrary(url, title) {
@@ -1338,9 +1320,10 @@ async function togglePause() {
 
 async function stopDownload() { 
     if (await showConfirm("Cancel Download", "Are you sure you want to cancel this download?", true)) { 
-        await fetch(`${API_URL}/api/stop`, {method:'POST'}); pollDownloadStatus(); 
+        await fetch(`${API_URL}/api/stop`, {method:'POST'}); 
     } 
 }
+
 
 // --- Scripts ---
 function selectScript(scriptId) {
@@ -1489,13 +1472,12 @@ async function reorderQueue(srcHash, targetHash) {
     if (srcIdx > -1 && tgtIdx > -1) {
         hashes.splice(srcIdx, 1); hashes.splice(tgtIdx, 0, srcHash);
         await fetch(`${API_URL}/api/download/queue/reorder`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({hashes}) });
-        pollDownloadStatus();
     }
 }
 
 async function removeFromQueue(hash) { 
     if (await showConfirm("Remove Item", "Remove this item from the queue?", true)) { 
-        await fetch(`${API_URL}/api/download/queue/remove/${hash}`, {method:'POST'}); pollDownloadStatus(); 
+        await fetch(`${API_URL}/api/download/queue/remove/${hash}`, {method:'POST'}); 
     } 
 }
 function handleDragActiveStart(e) { const titleEl = document.getElementById('dl-title'); if (titleEl && titleEl.textContent !== "No active download") { e.dataTransfer.setData("active-item", "true"); } else e.preventDefault(); }
@@ -1503,20 +1485,19 @@ async function handleDropToActive(e) {
     e.preventDefault(); const draggedHash = e.dataTransfer.getData("queue-hash"); if (!draggedHash) return;
     const res = await fetch(`${API_URL}/api/download/status`); const status = await res.json();
     const hashes = (status.queue || []).map(i => i.hash); const srcIdx = hashes.indexOf(draggedHash);
-    if (srcIdx > -1) { hashes.splice(srcIdx, 1); hashes.unshift(draggedHash); await fetch(`${API_URL}/api/download/queue/reorder`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({hashes}) }); pollDownloadStatus(); }
+    if (srcIdx > -1) { hashes.splice(srcIdx, 1); hashes.unshift(draggedHash); await fetch(`${API_URL}/api/download/queue/reorder`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({hashes}) }); }
 }
 async function handleDropToQueue(e) {
     e.preventDefault(); if (!e.dataTransfer.getData("active-item")) return;
     const res = await fetch(`${API_URL}/api/download/status`); const status = await res.json();
     if (!status.active) return;
-    const hashes = (status.queue || []).map(i => i.hash); if (hashes.length > 1) { const activeHash = hashes.shift(); hashes.push(activeHash); await fetch(`${API_URL}/api/download/queue/reorder`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({hashes}) }); pollDownloadStatus(); }
+    const hashes = (status.queue || []).map(i => i.hash); if (hashes.length > 1) { const activeHash = hashes.shift(); hashes.push(activeHash); await fetch(`${API_URL}/api/download/queue/reorder`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({hashes}) }); }
 }
 
 async function launchGame(id) {
     try { 
         const res = await fetch(`${API_URL}/api/launch/${id}`, { method: 'POST' }); 
         if (!res.ok) { const err = await res.json(); await showAlert("Error", `Failed: ${err.detail}`); }
-        else { pollRunningGames(); } // Immediate refresh
     } catch (e) { await showAlert("Error", `Error: ${e.message}`); }
 }
 
@@ -1524,7 +1505,6 @@ async function stopGame(id) {
     try {
         const res = await fetch(`${API_URL}/api/stop/${id}`, { method: 'POST' });
         if (!res.ok) { const err = await res.json(); await showAlert("Error", `Failed: ${err.detail}`); }
-        else { pollRunningGames(); } // Immediate refresh
     } catch (e) { await showAlert("Error", `Error: ${e.message}`); }
 }
  
@@ -2001,5 +1981,3 @@ connectWebSocket();
 loadSettings().then(() => {
     switchTab('library');
 });
-startPollingStatus();
-setInterval(pollRunningGames, 2000); // Check for running games every 2s

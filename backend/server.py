@@ -288,6 +288,55 @@ def hltb_background_task():
         # Run every 4 hours
         time.sleep(14400)
 
+def monitor_running_games():
+    """Background task to monitor running games and broadcast status changes."""
+    last_running_set = set()
+    
+    while True:
+        try:
+            current_running = []
+            to_remove = []
+            
+            # Check active games
+            for gid, game in list(active_games.items()):
+                if game.run_instance and game.run_instance._process and game.run_instance._process.poll() is None:
+                    current_running.append(gid)
+                else:
+                    # If it was running but process is gone, mark for removal from active list
+                    # active_games cleanup is also done in stop_game or potentially elsewhere, 
+                    # but we clean up here to be sure.
+                    to_remove.append(gid)
+            
+            for gid in to_remove:
+                if gid in active_games:
+                    del active_games[gid]
+            
+            # Compare with last state
+            current_set = set(current_running)
+            if current_set != last_running_set:
+                logger.info(f"Running games changed: {current_running}")
+                broadcast_event("running_games", {"running": current_running})
+                last_running_set = current_set
+                
+        except Exception as e:
+            logger.error(f"Error in monitor_running_games: {e}")
+            
+        time.sleep(1) # Check every second
+
+def download_status_callback(type: str, data: any):
+    """
+    Wrapper for download manager callback.
+    Broadcasts the specific event AND the full status.
+    """
+    # 1. Broadcast specific event (legacy support + specific UI toasts)
+    broadcast_event(type, data)
+    
+    # 2. Broadcast full status update (replaces polling)
+    # We throttle this slightly implicitly because DownloadManager doesn't spam 'progress' too fast.
+    if download_manager:
+        status = download_manager.get_status()
+        broadcast_event("download_status", status)
+
 def init_scraper_background():
     global scraper, scraper_ready
     logger.info("Warm-starting Scraper...")
@@ -328,7 +377,7 @@ async def lifespan(app: FastAPI):
     
     # 4. Init Download Manager
     logger.info("Initializing DownloadManager...")
-    download_manager = AsyncDownloadManager(scraper, status_callback=broadcast_event)
+    download_manager = AsyncDownloadManager(scraper, status_callback=download_status_callback)
     
     # 5. Init Metadata
     user_config = UserConfig(CONFIG_FOLDER, "userconfig.json")
@@ -349,6 +398,9 @@ async def lifespan(app: FastAPI):
 
     # 8. Start HLTB Background Task
     threading.Thread(target=hltb_background_task, daemon=True).start()
+    
+    # 9. Start Running Games Monitor
+    threading.Thread(target=monitor_running_games, daemon=True).start()
     
     yield
     
@@ -432,6 +484,18 @@ async def websocket_endpoint(websocket: WebSocket):
     # Send initial scraper status
     status = "ready" if scraper_ready else "initializing"
     await websocket.send_text(json.dumps({"type": "scraper_status", "data": status}))
+
+    # Send initial running games
+    running = []
+    for gid, game in active_games.items():
+        if game.run_instance and game.run_instance._process and game.run_instance._process.poll() is None:
+            running.append(gid)
+    await websocket.send_text(json.dumps({"type": "running_games", "data": {"running": running}}))
+    
+    # Send initial download status
+    if download_manager:
+        dl_status = download_manager.get_status()
+        await websocket.send_text(json.dumps({"type": "download_status", "data": dl_status}))
     
     try:
         while True:
