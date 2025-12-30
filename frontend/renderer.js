@@ -2290,6 +2290,199 @@ function closeBPModal() {
     }
 }
 
+// --- Collections ---
+let activeCollectionId = null;
+
+async function loadCollections() {
+    try {
+        const res = await fetch(`${API_URL}/api/collections`);
+        const data = await res.json();
+        renderCollectionsList(data);
+    } catch (e) { console.error("Collections load error", e); }
+}
+
+function renderCollectionsList(collections) {
+    const list = document.getElementById('collections-list');
+    if (!list) return;
+    list.innerHTML = '';
+    
+    if (collections.length === 0) {
+        list.innerHTML = '<div style="padding:15px; color:#666; font-style:italic;">No collections created.</div>';
+        return;
+    }
+
+    collections.forEach(col => {
+        const div = document.createElement('div');
+        div.className = `nav-item ${activeCollectionId === col.id ? 'active' : ''}`;
+        div.style.padding = '10px 15px';
+        div.textContent = col.name;
+        div.onclick = () => selectCollection(col);
+        list.appendChild(div);
+    });
+}
+
+function selectCollection(col) {
+    activeCollectionId = col.id;
+    // Reload sidebar to show active state
+    loadCollections();
+    
+    document.getElementById('collection-empty-state').style.display = 'none';
+    document.getElementById('collection-detail-header').style.display = 'flex';
+    document.getElementById('collection-items-container').style.display = 'flex';
+    
+    document.getElementById('active-collection-name').textContent = col.name;
+    renderCollectionItems(col.items || []);
+}
+
+function renderCollectionItems(items) {
+    const container = document.getElementById('collection-items-list');
+    container.innerHTML = '';
+    
+    if (items.length === 0) {
+        container.innerHTML = '<div style="padding:20px; color:#666; text-align:center;">This list is empty. Add items above!</div>';
+        return;
+    }
+
+    items.forEach(item => {
+        const div = document.createElement('div');
+        div.style.cssText = 'background: #252526; padding: 10px 15px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #333;';
+        
+        // Status Colors
+        const statusColors = {
+            'planned': '#888',
+            'in_progress': '#007acc',
+            'completed': '#28a745',
+            'dropped': '#dc3545'
+        };
+        const statusColor = statusColors[item.status] || '#888';
+
+        div.innerHTML = `
+            <div style="font-weight: 500; font-size: 16px;">${item.name}</div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <select onchange="updateItemStatus('${activeCollectionId}', '${item.id}', this.value)" style="background: ${statusColor}; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; cursor: pointer;">
+                    <option value="planned" ${item.status === 'planned' ? 'selected' : ''}>Planned</option>
+                    <option value="in_progress" ${item.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
+                    <option value="completed" ${item.status === 'completed' ? 'selected' : ''}>Completed</option>
+                    <option value="dropped" ${item.status === 'dropped' ? 'selected' : ''}>Dropped</option>
+                </select>
+                <button class="btn btn-secondary" onclick="deleteItem('${activeCollectionId}', '${item.id}')" style="padding: 4px 8px; color: #ff6b6b;">✕</button>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+async function createCollectionPrompt() {
+    const name = await showPrompt("New Collection", "Enter collection name (e.g. 'Anime to Watch'):");
+    if (name) {
+        try {
+            const res = await fetch(`${API_URL}/api/collections`, {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ name })
+            });
+            if (res.ok) {
+                const newCol = await res.json();
+                loadCollections();
+                selectCollection(newCol); // Auto-select
+            } else {
+                const err = await res.json();
+                showAlert("Error", err.detail);
+            }
+        } catch (e) { showAlert("Error", e.message); }
+    }
+}
+
+async function addItemToCollection() {
+    if (!activeCollectionId) return;
+    const input = document.getElementById('new-item-input');
+    const name = input.value.trim();
+    if (!name) return;
+    
+    try {
+        const res = await fetch(`${API_URL}/api/collections/${activeCollectionId}/items`, {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ name })
+        });
+        if (res.ok) {
+            input.value = ''; // Clear input
+            // Refresh view
+            const colRes = await fetch(`${API_URL}/api/collections`);
+            const cols = await colRes.json();
+            const col = cols.find(c => c.id === activeCollectionId);
+            if (col) renderCollectionItems(col.items);
+        } else {
+            const err = await res.json();
+            showAlert("Error", err.detail);
+        }
+    } catch (e) { showAlert("Error", e.message); }
+}
+
+async function updateItemStatus(colId, itemId, status) {
+    try {
+        await fetch(`${API_URL}/api/collections/${colId}/items/${itemId}`, {
+            method: 'PUT', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ status })
+        });
+        // Refresh color only? Or reload entire list to be safe
+        const colRes = await fetch(`${API_URL}/api/collections`);
+        const cols = await colRes.json();
+        const col = cols.find(c => c.id === colId);
+        if (col) renderCollectionItems(col.items);
+    } catch (e) { console.error(e); }
+}
+
+async function deleteItem(colId, itemId) {
+    if (!await showConfirm("Delete Item", "Remove this item from the list?", true)) return;
+    try {
+        await fetch(`${API_URL}/api/collections/${colId}/items/${itemId}`, { method: 'DELETE' });
+        // Refresh
+        const colRes = await fetch(`${API_URL}/api/collections`);
+        const cols = await colRes.json();
+        const col = cols.find(c => c.id === colId);
+        if (col) renderCollectionItems(col.items);
+    } catch (e) { showAlert("Error", e.message); }
+}
+
+async function renameCollectionPrompt() {
+    if (!activeCollectionId) return;
+    const currentName = document.getElementById('active-collection-name').textContent;
+    const newName = await showPrompt("Rename Collection", "Enter new name:", currentName);
+    if (newName && newName !== currentName) {
+        try {
+            const res = await fetch(`${API_URL}/api/collections/${activeCollectionId}`, {
+                method: 'PUT', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ name: newName })
+            });
+            if (res.ok) {
+                document.getElementById('active-collection-name').textContent = newName;
+                loadCollections();
+            }
+        } catch (e) { showAlert("Error", e.message); }
+    }
+}
+
+async function deleteCollectionPrompt() {
+    if (!activeCollectionId) return;
+    if (!await showConfirm("Delete Collection", "Are you sure? This will delete the list and all its items.", true)) return;
+    try {
+        const res = await fetch(`${API_URL}/api/collections/${activeCollectionId}`, { method: 'DELETE' });
+        if (res.ok) {
+            activeCollectionId = null;
+            document.getElementById('collection-detail-header').style.display = 'none';
+            document.getElementById('collection-items-container').style.display = 'none';
+            document.getElementById('collection-empty-state').style.display = 'flex';
+            loadCollections();
+        }
+    } catch (e) { showAlert("Error", e.message); }
+}
+
+// Hook into existing init
+const originalSwitchTab = switchTab;
+switchTab = function(tabName) {
+    originalSwitchTab(tabName);
+    if (tabName === 'collections') loadCollections();
+};
+
 // Init
 connectWebSocket();
 fetchVersion();
