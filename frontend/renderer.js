@@ -14,14 +14,20 @@ class I18n {
     }
 
     async load(locale) {
-        this.locale = locale === 'german' ? 'de' : 'en'; // Map backend setting to file code
+        this.locale = locale || 'en';
         try {
             const filePath = path.join(__dirname, 'locales', `${this.locale}.json`);
             if (fs.existsSync(filePath)) {
                 this.data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
             } else {
                 console.warn(`Locale file not found: ${filePath}`);
-                this.data = {}; // Fallback
+                // Try to load english as fallback if not already english
+                if (this.locale !== 'en') {
+                     const fallbackPath = path.join(__dirname, 'locales', 'en.json');
+                     if (fs.existsSync(fallbackPath)) this.data = JSON.parse(fs.readFileSync(fallbackPath, 'utf8'));
+                } else {
+                    this.data = {};
+                }
             }
         } catch (e) {
             console.error("Failed to load locale:", e);

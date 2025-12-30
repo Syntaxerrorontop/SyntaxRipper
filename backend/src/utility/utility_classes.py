@@ -130,6 +130,7 @@ class UserConfig:
             "installed_games_path": os.path.join(doc_path, "Games"),
             "media_output_path": os.path.join(doc_path, "ConvertedMedia"),
             "default_username": "Guest",
+            "default_language": "en",
             "rawg_api_key": "",
             "auto_update_games": False,
             "real_debrid_key": "",
