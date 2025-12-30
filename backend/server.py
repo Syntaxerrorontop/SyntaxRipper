@@ -540,6 +540,7 @@ class SettingsUpdate(BaseModel):
     media_output_path: str = ""
     show_hidden_games: bool = False
     random_include_uninstalled: bool = False
+    theme: str = "dark"
 
 class AddLibraryRequest(BaseModel):
     title: str
@@ -1259,7 +1260,8 @@ def get_settings():
         "last_selected_game_id": config.LAST_SELECTED_GAME_ID,
         "show_hidden_games": config.SHOW_HIDDEN_GAMES,
         "random_include_uninstalled": getattr(config, "RANDOM_INCLUDE_UNINSTALLED", False),
-        "excluded_folders": getattr(config, "EXCLUDED_FOLDERS", [])
+        "excluded_folders": getattr(config, "EXCLUDED_FOLDERS", []),
+        "theme": getattr(config, "THEME", "dark")
     }
 
 class ReorderCategoriesRequest(BaseModel):
@@ -1326,6 +1328,7 @@ def update_settings(settings: SettingsUpdate):
     config.MEDIA_OUTPUT_PATH = settings.media_output_path
     config.SHOW_HIDDEN_GAMES = settings.show_hidden_games
     config.RANDOM_INCLUDE_UNINSTALLED = settings.random_include_uninstalled
+    config.THEME = settings.theme
 
     # New Settings
     if hasattr(settings, "real_debrid_key"):

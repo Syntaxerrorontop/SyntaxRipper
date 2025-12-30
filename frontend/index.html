@@ -12,6 +12,9 @@
             --text-color: #e0e0e0;
             --text-dim: #888;
             --border-color: #333;
+            --card-bg: #1e1e1e;
+            --input-bg: #161616;
+            --hover-color: #2d2d30;
         }
 
         body {
@@ -576,35 +579,35 @@
         </div>
         <div class="nav-item active" onclick="switchTab('library')" title="Library">
             <span class="nav-icon">📚</span>
-            <span class="nav-text">Library <span id="badge-library" style="background: var(--accent-color); color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px; margin-left: 5px; display: none;"></span></span>
+            <span class="nav-text" data-i18n="sidebar.library">Library <span id="badge-library" style="background: var(--accent-color); color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px; margin-left: 5px; display: none;"></span></span>
         </div>
         <div class="nav-item" onclick="switchTab('search')" title="Store">
             <span class="nav-icon">🔍</span>
-            <span class="nav-text">Store</span>
+            <span class="nav-text" data-i18n="sidebar.store">Store</span>
         </div>
         <div class="nav-item" onclick="switchTab('downloads')" title="Downloads">
             <span class="nav-icon">⬇️</span>
-            <span class="nav-text">Downloads <span id="badge-downloads" style="background: var(--accent-color); color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px; margin-left: 5px; display: none;"></span></span>
+            <span class="nav-text" data-i18n="sidebar.downloads">Downloads <span id="badge-downloads" style="background: var(--accent-color); color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px; margin-left: 5px; display: none;"></span></span>
         </div>
         <div class="nav-item" onclick="switchTab('scripts')" title="Scripts">
             <span class="nav-icon">📜</span>
-            <span class="nav-text">Scripts</span>
+            <span class="nav-text" data-i18n="sidebar.scripts">Scripts</span>
         </div>
         <div class="nav-item" onclick="switchTab('settings')" title="Settings">
             <span class="nav-icon">⚙️</span>
-            <span class="nav-text">Settings</span>
+            <span class="nav-text" data-i18n="sidebar.settings">Settings</span>
         </div>
         <div class="nav-item" onclick="switchTab('profile')" title="Profile">
             <span class="nav-icon">👤</span>
-            <span class="nav-text">Profile</span>
+            <span class="nav-text" data-i18n="sidebar.profile">Profile</span>
         </div>
         <div class="nav-item" onclick="selectRandomGame()" title="Random Game" style="margin-top: auto;">
             <span class="nav-icon">🎲</span>
-            <span class="nav-text">Random</span>
+            <span class="nav-text" data-i18n="sidebar.random">Random</span>
         </div>
         <div class="nav-item" onclick="toggleBigPicture()" title="Big Picture Mode" style="margin-bottom: 20px; color: gold;">
             <span class="nav-icon">📺</span>
-            <span class="nav-text">Big Picture</span>
+            <span class="nav-text" data-i18n="sidebar.big_picture">Big Picture</span>
         </div>
     </nav>
 
@@ -953,26 +956,39 @@
                     
                     <!-- User Profile -->
                     <div class="settings-card">
-                        <h2>👤 User Profile</h2>
+                        <h2 data-i18n="settings.profile">👤 User Profile</h2>
                         <div class="form-group">
-                            <label>Username</label>
+                            <label data-i18n="settings.username">Username</label>
                             <div class="input-row">
                                 <input type="text" id="usernameInput" placeholder="Enter your username">
                             </div>
-                            <p class="hint">Displayed in the sidebar and used for personalization.</p>
+                            <p class="hint" data-i18n="settings.username_hint">Displayed in the sidebar and used for personalization.</p>
                         </div>
                         <div class="form-group">
-                            <label>Language</label>
+                            <label data-i18n="settings.language">Language</label>
                             <div class="input-row">
                                 <input type="text" id="languageInput" placeholder="e.g. english, german, russian">
                             </div>
-                            <p class="hint">Applied to supported game configuration files.</p>
+                            <p class="hint" data-i18n="settings.language_hint">Enter 'english' or 'german' (restart required for some changes).</p>
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="settings.theme">Theme</label>
+                            <div class="input-row">
+                                <select id="themeInput" style="flex: 1; padding: 12px 15px; background-color: #161616; border: 1px solid #333; color: white; border-radius: 6px; font-family: inherit; font-size: 14px;">
+                                    <option value="dark">Dark (Default)</option>
+                                    <option value="light">Light</option>
+                                    <option value="oled">OLED (True Black)</option>
+                                    <option value="cyberpunk">Cyberpunk</option>
+                                    <option value="dracula">Dracula</option>
+                                </select>
+                            </div>
+                            <p class="hint" data-i18n="settings.theme_hint">Select your preferred visual style.</p>
                         </div>
                     </div>
 
                     <!-- Integrations -->
                     <div class="settings-card">
-                        <h2>🔌 Integrations</h2>
+                        <h2 data-i18n="settings.integrations">🔌 Integrations</h2>
                         <div class="form-group">
                             <label>RAWG API Key</label>
                             <div class="input-row">
@@ -1215,7 +1231,7 @@
 
         <div id="footer">
             <span id="footerStatus" style="display: flex; align-items: center;"><span class="spin">↻</span> Connecting...</span>
-            <span>V3.0.0</span>
+            <span>V3.11.0</span>
         </div>
     </div>
 

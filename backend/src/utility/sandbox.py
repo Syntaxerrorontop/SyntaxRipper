@@ -38,10 +38,21 @@ def is_windows_11_pro():
 def is_sandbox_enabled():
     """Checks if Windows Sandbox feature is enabled."""
     try:
-        cmd = "Get-WindowsOptionalFeature -Online -FeatureName 'Containers-DisposableClientVM' | Select-Object -ExpandProperty State"
-        result = subprocess.run(["powershell", "-Command", cmd], capture_output=True, text=True, creationflags=0x08000000)
-        state = result.stdout.strip()
-        return state == "Enabled"
+        cmd = "dism /online /get-featureinfo /featurename:Containers-DisposableClientVM"
+        result = subprocess.run([cmd], capture_output=True, text=True, creationflags=0x08000000)
+        state = str(result.stdout).split("\n")
+        needs = 10000
+        for part in state:
+            if "Containers-DisposableClientVM" in part:
+                needs = 3
+            
+            else:
+                need -= 1
+            
+            if needs == 0:
+                state = part.split(":")[1].strip()
+                return state
+        
     except Exception as e:
         logger.error(f"Error checking Sandbox status: {e}")
         return False

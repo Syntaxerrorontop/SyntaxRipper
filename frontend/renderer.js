@@ -1,7 +1,98 @@
 const { ipcRenderer } = require('electron');
+const path = require('path');
+const fs = require('fs');
+const themes = require('./themes.js');
 
 const API_URL = 'http://127.0.0.1:12345';
 const WS_URL = 'ws://127.0.0.1:12345/ws';
+
+// --- Localization & Theming ---
+class I18n {
+    constructor() {
+        this.locale = 'en';
+        this.data = {};
+    }
+
+    async load(locale) {
+        this.locale = locale === 'german' ? 'de' : 'en'; // Map backend setting to file code
+        try {
+            const filePath = path.join(__dirname, 'locales', `${this.locale}.json`);
+            if (fs.existsSync(filePath)) {
+                this.data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+            } else {
+                console.warn(`Locale file not found: ${filePath}`);
+                this.data = {}; // Fallback
+            }
+        } catch (e) {
+            console.error("Failed to load locale:", e);
+        }
+        this.translatePage();
+    }
+
+    t(key) {
+        const keys = key.split('.');
+        let value = this.data;
+        for (const k of keys) {
+            value = value ? value[k] : undefined;
+        }
+        return value || key;
+    }
+
+    translatePage() {
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            const key = el.getAttribute('data-i18n');
+            const translation = this.t(key);
+            if (translation) {
+                // Preserve child elements if needed (simple replacement for now)
+                // If element has children (like badges), we might need to be careful.
+                // For nav items, we have a span inside.
+                if (el.children.length > 0) {
+                    // Specific logic for complex elements
+                    // Example: "Library <span...>"
+                    // We only want to replace the text node
+                    let textNode = null;
+                    el.childNodes.forEach(node => {
+                        if (node.nodeType === Node.TEXT_NODE && node.textContent.trim().length > 0) {
+                            textNode = node;
+                        }
+                    });
+                    if (textNode) {
+                        textNode.textContent = translation + " ";
+                    } else {
+                        // Fallback: prepend if no text node found but children exist
+                        // This might duplicate text if run multiple times, but load() is usually once per setting change
+                        // Better: Don't replace if children exist unless we know structure.
+                        // For sidebar, we target .nav-text which has text + span.
+                        if (el.classList.contains('nav-text')) {
+                             el.childNodes[0].textContent = translation + " ";
+                        }
+                    }
+                } else {
+                    el.textContent = translation;
+                }
+            }
+        });
+        
+        // Translate placeholders
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+            const key = el.getAttribute('data-i18n-placeholder');
+            el.placeholder = this.t(key);
+        });
+    }
+}
+
+class ThemeManager {
+    setTheme(themeName) {
+        const theme = themes[themeName] || themes['dark'];
+        const root = document.documentElement;
+        for (const [key, value] of Object.entries(theme)) {
+            root.style.setProperty(key, value);
+        }
+    }
+}
+
+const i18n = new I18n();
+const themeManager = new ThemeManager();
 
 // Global State
 let ws = null;
@@ -298,6 +389,11 @@ async function loadSettings() {
     try {
         const res = await fetch(`${API_URL}/api/settings`);
         currentSettings = await res.json();
+        
+        // Apply System Settings
+        if (currentSettings.language) await i18n.load(currentSettings.language);
+        if (currentSettings.theme) themeManager.setTheme(currentSettings.theme);
+
         if (currentSettings.collapsed_categories) {
             window.collapsedCategories = new Set(currentSettings.collapsed_categories);
         }
@@ -323,6 +419,7 @@ function renderSettings() {
     }
     const userIn = document.getElementById('usernameInput'); if (userIn) userIn.value = currentSettings.username || "";
     const langIn = document.getElementById('languageInput'); if (langIn) langIn.value = currentSettings.language || "";
+    const themeIn = document.getElementById('themeInput'); if (themeIn) themeIn.value = currentSettings.theme || "dark";
     const rawgIn = document.getElementById('rawgKeyInput'); if (rawgIn) rawgIn.value = currentSettings.rawg_api_key || "";
     const debridIn = document.getElementById('debridKeyInput'); if (debridIn) debridIn.value = currentSettings.real_debrid_key || "";
     const dpathIn = document.getElementById('downloadPathInput'); if (dpathIn) dpathIn.value = currentSettings.download_path || "";
@@ -659,6 +756,7 @@ async function saveSettings() {
     try {
         const userIn = document.getElementById('usernameInput'); if (userIn) currentSettings.username = userIn.value;
         const langIn = document.getElementById('languageInput'); if (langIn) currentSettings.language = langIn.value;
+        const themeIn = document.getElementById('themeInput'); if (themeIn) currentSettings.theme = themeIn.value;
         const rawgIn = document.getElementById('rawgKeyInput'); if (rawgIn) currentSettings.rawg_api_key = rawgIn.value.trim();
         const debridIn = document.getElementById('debridKeyInput'); if (debridIn) currentSettings.real_debrid_key = debridIn.value.trim();
         const speedIn = document.getElementById('speedLimitInput'); if (speedIn) currentSettings.speed = parseInt(speedIn.value) || 0;

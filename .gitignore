@@ -16,6 +16,7 @@ ConvertedMedia/
 !backend/requirements.txt
 !frontend/package.json
 !frontend/package-lock.json
+!frontend/locales/*.json
 
 # Cache & Logs
 __pycache__/

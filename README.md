@@ -1,6 +1,6 @@
 # SyntaxRipper V3
 
-[![Version](https://img.shields.io/badge/version-3.8.3-blue.svg)](version.txt)
+[![Version](https://img.shields.io/badge/version-3.11.0-blue.svg)](version.txt)
 [![License](https://img.shields.io/badge/license-Educational-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)](https://www.microsoft.com/windows)
 
