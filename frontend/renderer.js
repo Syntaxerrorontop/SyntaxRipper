@@ -2476,13 +2476,6 @@ async function deleteCollectionPrompt() {
     } catch (e) { showAlert("Error", e.message); }
 }
 
-// Hook into existing init
-const originalSwitchTab = switchTab;
-switchTab = function(tabName) {
-    originalSwitchTab(tabName);
-    if (tabName === 'collections') loadCollections();
-};
-
 // Init
 connectWebSocket();
 fetchVersion();

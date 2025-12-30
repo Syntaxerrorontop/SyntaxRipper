@@ -597,10 +597,6 @@
             <span class="nav-icon">⬇️</span>
             <span class="nav-text" data-i18n="sidebar.downloads">Downloads <span id="badge-downloads" style="background: var(--accent-color); color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px; margin-left: 5px; display: none;"></span></span>
         </div>
-        <div class="nav-item" onclick="switchTab('collections')" title="Collections">
-            <span class="nav-icon">📑</span>
-            <span class="nav-text" data-i18n="sidebar.collections">Collections</span>
-        </div>
         <div class="nav-item" onclick="switchTab('scripts')" title="Scripts">
             <span class="nav-icon">📜</span>
             <span class="nav-text" data-i18n="sidebar.scripts">Scripts</span>
@@ -875,49 +871,7 @@
                 </div>
             </div>
 
-            <!-- Collections View -->
-            <div id="view-collections" class="view">
-                <div class="simple-header" style="display: flex; justify-content: space-between; align-items: center;">
-                    <h1>Collections</h1>
-                    <button class="btn btn-primary" onclick="createCollectionPrompt()">+ New List</button>
-                </div>
-                <div class="simple-content" style="display: flex; height: 100%; gap: 20px;">
-                    <!-- Collection List (Sidebar) -->
-                    <div style="width: 250px; display: flex; flex-direction: column; gap: 10px; border-right: 1px solid var(--border-color); padding-right: 20px; overflow-y: auto;">
-                        <div id="collections-list">
-                            <!-- Populated by JS -->
-                        </div>
-                    </div>
-                    
-                    <!-- Collection Details (Main) -->
-                    <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
-                        <div id="collection-detail-header" style="display: none; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
-                            <h2 id="active-collection-name" style="margin: 0;">Select a List</h2>
-                            <div style="display: flex; gap: 10px;">
-                                <button class="btn btn-secondary" onclick="renameCollectionPrompt()">Rename</button>
-                                <button class="btn btn-danger" onclick="deleteCollectionPrompt()">Delete</button>
-                            </div>
-                        </div>
-
-                        <div id="collection-items-container" style="display: none; flex-direction: column; flex: 1; overflow-y: auto;">
-                            <!-- Add Item Input -->
-                            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                                <input type="text" id="new-item-input" placeholder="Add new item (e.g. One Piece)..." style="flex: 1; padding: 10px; background: var(--input-bg); border: 1px solid var(--border-color); color: white; border-radius: 4px;" onkeyup="if(event.key==='Enter') addItemToCollection()">
-                                <button class="btn btn-primary" onclick="addItemToCollection()">Add</button>
-                            </div>
-                            
-                            <!-- Items List -->
-                            <div id="collection-items-list" style="display: flex; flex-direction: column; gap: 8px;">
-                                <!-- Populated by JS -->
-                            </div>
-                        </div>
-
-                        <div id="collection-empty-state" style="display: flex; flex: 1; align-items: center; justify-content: center; color: #666; font-style: italic;">
-                            Select or create a collection to get started.
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <!-- Collections View Removed (Moved to Scripts) -->
 
             <!-- Scripts View -->
             <div id="view-scripts" class="view">
@@ -931,8 +885,8 @@
                         <div class="script-item" onclick="selectScript('media-converter')" style="padding: 10px; cursor: pointer; background: #252526; border-radius: 4px; margin-bottom: 5px;">
                             Audio Converter
                         </div>
-                        <div class="script-item" style="padding: 10px; cursor: not-allowed; opacity: 0.5; color: #666;">
-                            (More coming soon...)
+                        <div class="script-item" onclick="selectScript('collections-manager')" style="padding: 10px; cursor: pointer; background: #252526; border-radius: 4px; margin-bottom: 5px;">
+                            Collections Manager
                         </div>
                     </div>
                     <!-- Script Content -->
@@ -974,6 +928,50 @@
                                     <!-- Options populated dynamically -->
                                 </select>
                                 <button class="btn btn-primary" onclick="runMediaConvert()" style="width: 100%; margin-top: 15px;">Convert Now</button>
+                            </div>
+                        </div>
+
+                        <div id="script-collections-manager" class="script-panel" style="display: none; height: 100%;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                <h2 style="margin: 0;">Collections Manager</h2>
+                                <button class="btn btn-primary" onclick="createCollectionPrompt()">+ New List</button>
+                            </div>
+                            
+                            <div style="display: flex; height: calc(100% - 60px); gap: 20px;">
+                                <!-- Collection List (Sidebar) -->
+                                <div style="width: 250px; display: flex; flex-direction: column; gap: 10px; border-right: 1px solid var(--border-color); padding-right: 20px; overflow-y: auto;">
+                                    <div id="collections-list">
+                                        <!-- Populated by JS -->
+                                    </div>
+                                </div>
+                                
+                                <!-- Collection Details (Main) -->
+                                <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+                                    <div id="collection-detail-header" style="display: none; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+                                        <h2 id="active-collection-name" style="margin: 0; font-size: 20px;">Select a List</h2>
+                                        <div style="display: flex; gap: 10px;">
+                                            <button class="btn btn-secondary" onclick="renameCollectionPrompt()">Rename</button>
+                                            <button class="btn btn-danger" onclick="deleteCollectionPrompt()">Delete</button>
+                                        </div>
+                                    </div>
+
+                                    <div id="collection-items-container" style="display: none; flex-direction: column; flex: 1; overflow-y: auto;">
+                                        <!-- Add Item Input -->
+                                        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                                            <input type="text" id="new-item-input" placeholder="Add new item (e.g. One Piece)..." style="flex: 1; padding: 10px; background: var(--input-bg); border: 1px solid var(--border-color); color: white; border-radius: 4px;" onkeyup="if(event.key==='Enter') addItemToCollection()">
+                                            <button class="btn btn-primary" onclick="addItemToCollection()">Add</button>
+                                        </div>
+                                        
+                                        <!-- Items List -->
+                                        <div id="collection-items-list" style="display: flex; flex-direction: column; gap: 8px;">
+                                            <!-- Populated by JS -->
+                                        </div>
+                                    </div>
+
+                                    <div id="collection-empty-state" style="display: flex; flex: 1; align-items: center; justify-content: center; color: #666; font-style: italic;">
+                                        Select or create a collection to get started.
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
