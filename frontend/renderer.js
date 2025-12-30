@@ -1503,7 +1503,16 @@ function showDetails(gameId) {
     }
     
     const gallery = document.getElementById('detail-gallery'); gallery.innerHTML = '';
-    currentGalleryImages = (game.screenshots || []).map(s => s + ts);
+    currentGalleryImages = (game.screenshots || []).map(s => {
+        if (s.startsWith('http')) return s;
+        // If it's a local path, try to use the cache server if it's in the cache folder
+        // Otherwise use file protocol (requires webSecurity: false)
+        if (s.includes('Cache') || s.includes('cache')) {
+             const filename = s.split(/[\\/]/).pop();
+             return `${API_URL}/cache/${filename}${ts}`;
+        }
+        return `file://${s}`;
+    });
     if (currentGalleryImages.length > 0) {
         currentGalleryIndex = 0;
         gallery.innerHTML = `<div class="slideshow-container"><div class="slide-arrow" style="left:10px;" onclick="changeSlide(-1)">❮</div><div class="slide-arrow" style="right:10px;" onclick="changeSlide(1)">❯</div><img id="gallery-img" src="" style="width:100%; height:100%; object-fit:contain; cursor:zoom-in;" ondblclick="openFullscreen(this.src)"><div id="gallery-count" style="position:absolute; bottom:10px; right:10px; background:rgba(0,0,0,0.6); color:white; padding:2px 8px; border-radius:4px; font-size:12px;"></div></div>`;
@@ -1590,8 +1599,12 @@ async function addToLibrary(url, title) {
     try {
         const res = await fetch(`${API_URL}/api/library/add`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url: finalUrl, title: finalTitle}) });
         const data = await res.json();
-        if (data.status === 'added' || data.status === 'exists') { if (data.status === 'added') alert(`${finalTitle} added!`); refreshLibrary(); performSearch(); }
-    } catch(e) { alert("Add failed: " + e.message); }
+        if (data.status === 'added' || data.status === 'exists') { 
+            if (data.status === 'added') showToast(`${finalTitle} added!`, 'success'); 
+            await refreshLibrary(); // Wait for refresh
+            performSearch(); 
+        }
+    } catch(e) { showToast("Add failed: " + e.message, "error"); }
 }
 
 async function togglePause() {

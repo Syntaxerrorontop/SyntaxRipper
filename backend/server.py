@@ -37,6 +37,7 @@ from src.utility.metadata import MetadataFetcher
 from src.utility.config_updater import update_game_configs
 from src.utility.backup import SaveBackupManager
 from src.utility.scripts import ScriptExecutor
+from src.utility.collections_manager import CollectionsManager
 from src.utility.hltb import HLTBFetcher
 from src.utility.debrid import DebridManager
 from src.utility.tools_manager import ToolsManager
@@ -64,6 +65,7 @@ download_manager = None
 metadata_fetcher = None
 save_backup_manager = SaveBackupManager()
 script_executor = ScriptExecutor()
+collections_manager = CollectionsManager()
 hltb_fetcher = HLTBFetcher()
 debrid_manager = DebridManager()
 tools_manager = ToolsManager()
@@ -2180,6 +2182,65 @@ async def get_library_stats():
         "count": total_games,
         "genres": genres
     }
+
+# --- Collections API ---
+
+class CreateCollectionRequest(BaseModel):
+    name: str
+
+class RenameCollectionRequest(BaseModel):
+    name: str
+
+class AddCollectionItemRequest(BaseModel):
+    name: str
+
+class UpdateCollectionItemRequest(BaseModel):
+    status: str
+
+@app.get("/api/collections")
+async def get_collections():
+    return collections_manager.get_collections()
+
+@app.post("/api/collections")
+async def create_collection(request: CreateCollectionRequest):
+    res = collections_manager.create_collection(request.name)
+    if "error" in res:
+        raise HTTPException(status_code=400, detail=res["error"])
+    return res
+
+@app.delete("/api/collections/{collection_id}")
+async def delete_collection(collection_id: str):
+    if collections_manager.delete_collection(collection_id):
+        return {"status": "deleted"}
+    raise HTTPException(status_code=404, detail="Collection not found")
+
+@app.put("/api/collections/{collection_id}")
+async def rename_collection(collection_id: str, request: RenameCollectionRequest):
+    if collections_manager.rename_collection(collection_id, request.name):
+        return {"status": "renamed"}
+    raise HTTPException(status_code=404, detail="Collection not found")
+
+@app.post("/api/collections/{collection_id}/items")
+async def add_collection_item(collection_id: str, request: AddCollectionItemRequest):
+    res = collections_manager.add_item(collection_id, request.name)
+    if "error" in res:
+         if res["error"] == "Collection not found":
+             raise HTTPException(status_code=404, detail=res["error"])
+         else:
+             raise HTTPException(status_code=400, detail=res["error"])
+    return res
+
+@app.delete("/api/collections/{collection_id}/items/{item_id}")
+async def remove_collection_item(collection_id: str, item_id: str):
+    if collections_manager.remove_item(collection_id, item_id):
+        return {"status": "removed"}
+    raise HTTPException(status_code=404, detail="Item or Collection not found")
+
+@app.put("/api/collections/{collection_id}/items/{item_id}")
+async def update_collection_item(collection_id: str, item_id: str, request: UpdateCollectionItemRequest):
+    if collections_manager.update_item_status(collection_id, item_id, request.status):
+        return {"status": "updated"}
+    raise HTTPException(status_code=404, detail="Item or Collection not found")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=12345)
