@@ -2294,19 +2294,25 @@ function closeBPModal() {
 let activeCollectionId = null;
 
 async function loadCollections() {
+    console.log("Loading collections...");
     try {
         const res = await fetch(`${API_URL}/api/collections`);
         const data = await res.json();
+        console.log("Collections data:", data);
         renderCollectionsList(data);
     } catch (e) { console.error("Collections load error", e); }
 }
 
 function renderCollectionsList(collections) {
     const list = document.getElementById('collections-list');
-    if (!list) return;
+    console.log("Rendering list to:", list);
+    if (!list) {
+        console.error("Critical: 'collections-list' element not found in DOM!");
+        return;
+    }
     list.innerHTML = '';
     
-    if (collections.length === 0) {
+    if (!collections || collections.length === 0) {
         list.innerHTML = '<div style="padding:15px; color:#666; font-style:italic;">No collections created.</div>';
         return;
     }
@@ -2314,23 +2320,42 @@ function renderCollectionsList(collections) {
     collections.forEach(col => {
         const div = document.createElement('div');
         div.className = `nav-item ${activeCollectionId === col.id ? 'active' : ''}`;
-        div.style.padding = '10px 15px';
+        div.style.cssText = 'padding: 10px 15px; cursor: pointer; border-radius: 4px; margin-bottom: 2px;'; // Add explicit cursor and styling
         div.textContent = col.name;
-        div.onclick = () => selectCollection(col);
+        div.onclick = () => {
+            console.log("Clicked collection:", col.name);
+            selectCollection(col);
+        };
+        // Add hover effect manually if CSS fails
+        div.onmouseover = () => { if(activeCollectionId !== col.id) div.style.backgroundColor = '#2d2d30'; };
+        div.onmouseout = () => { if(activeCollectionId !== col.id) div.style.backgroundColor = 'transparent'; };
+        
+        if (activeCollectionId === col.id) {
+            div.style.backgroundColor = 'var(--accent-color)'; // Force active color
+            div.style.color = 'white';
+        }
+        
         list.appendChild(div);
     });
 }
 
 function selectCollection(col) {
+    console.log("Selecting collection:", col);
     activeCollectionId = col.id;
     // Reload sidebar to show active state
     loadCollections();
     
-    document.getElementById('collection-empty-state').style.display = 'none';
-    document.getElementById('collection-detail-header').style.display = 'flex';
-    document.getElementById('collection-items-container').style.display = 'flex';
+    const emptyState = document.getElementById('collection-empty-state');
+    const header = document.getElementById('collection-detail-header');
+    const container = document.getElementById('collection-items-container');
     
-    document.getElementById('active-collection-name').textContent = col.name;
+    if(emptyState) emptyState.style.display = 'none';
+    if(header) header.style.display = 'flex';
+    if(container) container.style.display = 'flex';
+    
+    const nameEl = document.getElementById('active-collection-name');
+    if(nameEl) nameEl.textContent = col.name;
+    
     renderCollectionItems(col.items || []);
 }
 
