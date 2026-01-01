@@ -1632,6 +1632,10 @@ function selectScript(scriptId) {
     
     const panel = document.getElementById(`script-${scriptId}`);
     if (panel) panel.style.display = 'block';
+
+    if (scriptId === 'collections-manager') {
+        loadCollections();
+    }
 }
 
 async function runUniversalDownloader() {
