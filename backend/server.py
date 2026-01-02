@@ -2031,9 +2031,21 @@ async def open_game_folder(game_id: str):
     
     raise HTTPException(status_code=404, detail="Folder not found")
 
+# Global State
+SOURCES_CONFIGURED = False
+scraper = None
+download_manager = None
+metadata_fetcher = None
+external_cache = None
+last_external_scan = 0
+EXTERNAL_SCAN_INTERVAL = 300 # 5 minutes
+
+# ... (rest of imports) ...
+
 @app.get("/api/library")
 async def get_library():
-    """Returns list of installed games/media."""
+    """Returns list of installed games/media. Optimized for speed."""
+    global external_cache, last_external_scan
     library = []
     
     user_config = UserConfig(CONFIG_FOLDER, "userconfig.json")
@@ -2044,108 +2056,67 @@ async def get_library():
     config_games = load_json(os.path.join(CONFIG_FOLDER, "games.json"))
     found_ids = set()
     
-    logged_posters = 0
     def enrich_game(game_obj):
-        nonlocal logged_posters
+        # FAST enrichment - only from cache
         try:
             if metadata_fetcher:
-                # Look up by metadata_id if set, otherwise name
                 lookup_name = game_obj.get("metadata_id") or game_obj["name"]
-                key = lookup_name.lower().strip()
-                
                 meta = metadata_fetcher.get_metadata(lookup_name, cached_only=True)
                 
                 if meta:
-                    # Merge all metadata fields
                     for k, v in meta.items():
-                        if k not in game_obj:
-                            game_obj[k] = v
-                    
-                    # Prefer high-res RAWG poster if available
-                    if meta.get("poster"):
-                        game_obj["poster"] = meta["poster"]
-                    
+                        if k not in game_obj: game_obj[k] = v
+                    if meta.get("poster"): game_obj["poster"] = meta["poster"]
                     game_obj["banner"] = meta.get("banner", "")
                     game_obj["screenshots"] = meta.get("screenshots", [])
-                    
-                    if logged_posters < 5:
-                        # logger.info(f"Assigned poster for {game_obj['name']}: {game_obj['poster']}")
-                        logged_posters += 1
                 else:
-                    # Not in cache, queue for background fetch
+                    # Async fetch if missing
                     if metadata_fetcher.api_key and lookup_name not in queued_metadata:
                         queued_metadata.add(lookup_name)
                         metadata_queue.put(lookup_name)
-            
-            # Detect Theme Music
-            if "path" in game_obj and os.path.exists(game_obj["path"]):
-                for f in os.listdir(game_obj["path"]):
-                    if f.lower().startswith("theme.") and f.lower().endswith((".mp3", ".wav", ".ogg")):
-                        # We need to serve this file. Since it's outside 'static', 
-                        # we might need a dedicated endpoint or symlink. 
-                        # For now, we return the absolute path and let frontend handle it 
-                        # (frontend can't access local files directly easily in browser, but Electron can via 'file://' or custom protocol)
-                        game_obj["theme_music"] = os.path.join(game_obj["path"], f)
-                        break
-
-            # HLTB Enrichment (Lazy or Cached?)
-            # To avoid slowing down library load, we might skip this here or implement caching.
-            # Ideally, HLTB data should be saved to games.json once fetched.
-            # We will rely on a separate endpoint for HLTB to update the UI on demand.
-            if "hltb" in game_obj:
-                pass # Already has data
-                
-        except Exception as e:
-            logger.error(f"Failed to enrich game '{game_obj.get('name')}': {e}")
+        except: pass
         return game_obj
     
+    # 1. Process local folders (Fast Scan)
     for path in game_paths:
         if not os.path.exists(path): continue
         try:
-            installed_folders = os.listdir(path)
-        except OSError as e:
-            logger.warning(f"Could not access library path '{path}': {e}")
-            continue
+            for folder_name in os.listdir(path):
+                full_path = os.path.join(path, folder_name)
+                if not os.path.isdir(full_path): continue
+                
+                game_id = folder_name 
+                info = config_games.get(game_id, {})
+                if game_id in found_ids: continue 
+                found_ids.add(game_id)
+                
+                # Don't run deep _game_naming here unless absolutely needed
+                exe_path = info.get("exe", "")
+                
+                library.append(enrich_game({
+                    "id": game_id,
+                    "metadata_id": info.get("metadata_id"),
+                    "name": info.get("alias", folder_name),
+                    "version": info.get("version", "Local"),
+                    "latest_version": info.get("latest_version", ""),
+                    "update_available": info.get("update_available", False),
+                    "link": info.get("link", ""),
+                    "exe": exe_path,
+                    "playtime": info.get("playtime", 0),
+                    "platform": "Local",
+                    "installed": True,
+                    "poster": f"http://127.0.0.1:12345/cache/{game_id}.png",
+                    "categories": info.get("categorys", []),
+                    "tags": info.get("tags", []),
+                    "hidden": info.get("hidden", False),
+                    "path": full_path
+                }))
+        except: continue
 
-        for folder_name in installed_folders:
-            full_path = os.path.join(path, folder_name)
-            if not os.path.isdir(full_path): continue
-            
-            game_id = folder_name 
-            info = config_games.get(game_id, {})
-            
-            if game_id in found_ids: continue 
-            found_ids.add(game_id)
-            
-            exe_path = info.get("exe", "")
-            if not exe_path:
-                exe_path = _game_naming(game_id, search_path=full_path)
-            
-            library.append(enrich_game({
-                "id": game_id,
-                "metadata_id": info.get("metadata_id"),
-                "name": info.get("alias", folder_name),
-                "version": info.get("version", "Local"),
-                "latest_version": info.get("latest_version", ""),
-                "update_available": info.get("update_available", False),
-                "link": info.get("link", ""),
-                "exe": exe_path,
-                "playtime": info.get("playtime", 0),
-                "platform": "Local",
-                "installed": True,
-                "poster": f"http://127.0.0.1:12345/cache/{game_id}.png",
-                "categories": info.get("categorys", []),
-                "tags": info.get("tags", []),
-                "hidden": info.get("hidden", False),
-                "path": full_path
-            }))
-
+    # 2. Add uninstalled but tracked games
     for game_id, info in config_games.items():
         if game_id not in found_ids:
-            # Skip cache-only entries for external games (let the scanner handle them)
-            if "External:Cached" in info.get("categorys", []):
-                continue
-
+            if "External:Cached" in info.get("categorys", []): continue
             library.append(enrich_game({
                 "id": game_id,
                 "metadata_id": info.get("metadata_id"),
@@ -2162,47 +2133,35 @@ async def get_library():
                 "hidden": info.get("hidden", False)
             }))
 
-    try:
-        scanner = ExternalLibraryScanner()
-        ext_games = scanner.scan()
-        for g in ext_games:
-            if not any(x['name'] == g['name'] for x in library):
-                # Check for cached HLTB data in config
-                hltb_cache = None
-                config_entry = config_games.get(f"ext_{g['name']}")
-                meta_id = None
-                if config_entry:
-                    if "hltb" in config_entry:
-                        hltb_cache = config_entry["hltb"]
-                    meta_id = config_entry.get("metadata_id")
-                
-                is_hidden = config_entry.get("hidden", False) if config_entry else False
+    # 3. Add External Libraries (with caching)
+    current_time = time.time()
+    if not external_cache or (current_time - last_external_scan > EXTERNAL_SCAN_INTERVAL):
+        try:
+            scanner = ExternalLibraryScanner()
+            external_cache = scanner.scan()
+            last_external_scan = current_time
+        except:
+            external_cache = external_cache or []
 
-                game_obj = enrich_game({
-                    "id": f"ext_{g['name']}",
-                    "metadata_id": meta_id,
-                    "name": g['name'],
-                    "version": g['version'],
-                    "exe": g['exe'],
-                    "playtime": 0,
-                    "platform": g['platform'],
-                    "installed": True,
-                    "poster": "", 
-                    "categories": [f"External:{g['platform']}"],
-                    "hidden": is_hidden
-                })
-                
-                if hltb_cache:
-                    game_obj["hltb"] = hltb_cache
-                    
-                library.append(game_obj)
-    except Exception as e:
-        logger.error(f"External scan failed: {e}")
-    
-    # Log all image paths to a dedicated file
-    # (Removed as per request)
+    for g in external_cache:
+        if not any(x['name'] == g['name'] for x in library):
+            config_entry = config_games.get(f"ext_{g['name']}", {})
+            game_obj = enrich_game({
+                "id": f"ext_{g['name']}",
+                "metadata_id": config_entry.get("metadata_id"),
+                "name": g['name'],
+                "version": g['version'],
+                "exe": g['exe'],
+                "playtime": 0,
+                "platform": g['platform'],
+                "installed": True,
+                "poster": "", 
+                "categories": [f"External:{g['platform']}"],
+                "hidden": config_entry.get("hidden", False)
+            })
+            if "hltb" in config_entry: game_obj["hltb"] = config_entry["hltb"]
+            library.append(game_obj)
 
-    logger.info(f"Serving library with {len(library)} items")
     return {"library": library}
 
 @app.post("/api/game/{game_id}/hide")
