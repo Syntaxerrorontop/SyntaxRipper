@@ -835,6 +835,28 @@ class UniversalScraper:
         """Create undetected Chrome webdriver with optimal settings"""
         self.logger.info("Creating undetected Chrome webdriver...")
 
+        # 0. Robust cleanup for undetected_chromedriver temp files
+        # This fixes [WinError 183] when files already exist or are locked
+        try:
+            uc_path = Path(os.getenv('APPDATA')) / "undetected_chromedriver"
+            if uc_path.exists():
+                # We try to remove only the specific target file that usually causes the collision
+                target_exe = uc_path / "undetected_chromedriver.exe"
+                if target_exe.exists():
+                    try:
+                        # Try to remove it multiple times with short delay
+                        for _ in range(3):
+                            try:
+                                os.remove(target_exe)
+                                self.logger.debug(f"Successfully removed existing {target_exe}")
+                                break
+                            except OSError:
+                                time.sleep(0.5)
+                    except Exception as e:
+                        self.logger.warning(f"Could not remove {target_exe}: {e}")
+        except Exception as e:
+            self.logger.debug(f"Cleanup check failed: {e}")
+
         options = uc.ChromeOptions()
         options.add_argument("--window-position=-10000,0")
         options.add_argument("--no-sandbox")
@@ -861,72 +883,90 @@ class UniversalScraper:
         use_headless = self.headless and not self.hide_window
         windows_headless = use_headless and os.name == "nt"
 
-        try:
-            # 1. Snapshot existing Chrome processes
-            initial_pids = set()
-            for proc in psutil.process_iter(["pid", "name"]):
-                try:
-                    if "chrome" in proc.info["name"].lower():
-                        initial_pids.add(proc.pid)
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    pass
+        # Retry logic for the driver creation itself
+        max_retries = 3
+        last_error = None
 
-            driver = uc.Chrome(
-                options=options,
-                windows_headless=windows_headless,
-                headless=use_headless and os.name != "nt",
-            )
+        for attempt in range(max_retries):
+            try:
+                # 1. Snapshot existing Chrome processes
+                initial_pids = set()
+                for proc in psutil.process_iter(["pid", "name"]):
+                    try:
+                        if "chrome" in proc.info["name"].lower():
+                            initial_pids.add(proc.pid)
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        pass
 
-            # 2. Identify new Chrome processes
-            final_pids = set()
-            for proc in psutil.process_iter(["pid", "name"]):
-                try:
-                    if "chrome" in proc.info["name"].lower():
-                        final_pids.add(proc.pid)
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    pass
+                driver = uc.Chrome(
+                    options=options,
+                    windows_headless=windows_headless,
+                    headless=use_headless and os.name != "nt",
+                )
 
-            # 3. Store only the new PIDs
-            new_pids = final_pids - initial_pids
-            self.my_chrome_pids = new_pids
-            self.logger.info(
-                f"🎯 Identified {len(self.my_chrome_pids)} Chrome processes belonging to this scraper"
-            )
+                # 2. Identify new Chrome processes
+                final_pids = set()
+                for proc in psutil.process_iter(["pid", "name"]):
+                    try:
+                        if "chrome" in proc.info["name"].lower():
+                            final_pids.add(proc.pid)
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        pass
 
-            # Register them for cleanup
-            for pid in self.my_chrome_pids:
-                try:
-                    self._register_chrome_process(psutil.Process(pid))
-                except:
-                    pass
+                # 3. Store only the new PIDs
+                new_pids = final_pids - initial_pids
+                self.my_chrome_pids = new_pids
+                self.logger.info(
+                    f"🎯 Identified {len(self.my_chrome_pids)} Chrome processes belonging to this scraper"
+                )
 
-            # Execute script to remove webdriver property
-            driver.execute_script(
-                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
-            )
+                # Register them for cleanup
+                for pid in self.my_chrome_pids:
+                    try:
+                        self._register_chrome_process(psutil.Process(pid))
+                    except:
+                        pass
 
-            # Get user agent
-            self.user_agent = driver.execute_script("return navigator.userAgent")
-            self.logger.info(f"Browser User-Agent: {self.user_agent}")
+                # Execute script to remove webdriver property
+                driver.execute_script(
+                    "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+                )
 
-            # Hide Chrome windows if requested and not in headless mode
-            if self.hide_window and not use_headless and platform.system() == "Windows":
-                self.logger.info("Starting aggressive window hider...")
-                def aggressive_hider():
-                    # Try to hide windows immediately and repeatedly for the first few seconds
-                    start_time = time.time()
-                    while time.time() - start_time < 5:
-                        self._hide_chrome_windows()
-                        time.sleep(0.01)
+                # Get user agent
+                self.user_agent = driver.execute_script("return navigator.userAgent")
+                self.logger.info(f"Browser User-Agent: {self.user_agent}")
+
+                # Hide Chrome windows if requested and not in headless mode
+                if self.hide_window and not use_headless and platform.system() == "Windows":
+                    self.logger.info("Starting aggressive window hider...")
+                    def aggressive_hider():
+                        # Try to hide windows immediately and repeatedly for the first few seconds
+                        start_time = time.time()
+                        while time.time() - start_time < 5:
+                            self._hide_chrome_windows()
+                            time.sleep(0.01)
+                    
+                    # Start hider in background immediately
+                    threading.Thread(target=aggressive_hider, daemon=True).start()
+
+                return driver
+
+            except Exception as e:
+                last_error = e
+                self.logger.warning(f"Attempt {attempt+1}/{max_retries} failed to create driver: {e}")
                 
-                # Start hider in background immediately
-                threading.Thread(target=aggressive_hider, daemon=True).start()
-
-            return driver
-
-        except Exception as e:
-            self.logger.error(f"Error creating webdriver: {e}")
-            raise
+                # If it's the specific WinError 183, try even harder to clean up
+                if "WinError 183" in str(e):
+                    try:
+                        # Full cleanup of the uc folder
+                        shutil.rmtree(Path(os.getenv('APPDATA')) / "undetected_chromedriver", ignore_errors=True)
+                    except: pass
+                
+                if attempt < max_retries - 1:
+                    time.sleep(2)
+                else:
+                    self.logger.error(f"Failed to create webdriver after {max_retries} attempts.")
+                    raise last_error
 
     def _update_requests_session(self) -> None:
         """Update requests session with current browser cookies and headers"""
