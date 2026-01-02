@@ -616,39 +616,49 @@ async def update_sources(request: UpdateSourcesRequest):
         save_json(CONFIG_FILE, config)
         
         # Trigger background validation (2-step process)
-        if scraper_ready:
-            def validate_task():
-                logger.info("Starting 2-step source validation...")
-                try:
-                    s1_config = config["sources"].get("source_1")
-                    if s1_config:
-                        # STEP 1: Version Map
-                        broadcast_event("status", "VALIDATION STEP 1/2: Checking Version Map...")
-                        v_map = Searcher.fetch_source_versions(scraper, s1_config)
-                        
-                        if not v_map:
-                            broadcast_event("error", "Step 1 Failed: Version Map could not be loaded. Check list_url and selectors.")
-                            return
+        def validate_task():
+            logger.info("Starting background validation thread...")
+            try:
+                # Wait for scraper to be ready if it's still starting
+                max_wait = 30
+                wait_count = 0
+                while not scraper_ready and wait_count < max_wait:
+                    broadcast_event("status", f"VALIDATION: Waiting for Engine to warm up... ({wait_count}/{max_wait}s)")
+                    time.sleep(1)
+                    wait_count += 1
+                
+                if not scraper_ready:
+                    broadcast_event("error", "Validation Failed: Engine took too long to start. Please restart.")
+                    return
 
-                        # STEP 2: Search Query
-                        broadcast_event("status", "VALIDATION STEP 2/2: Testing Search Indexing...")
-                        # We use a common search term to verify grid/item selectors
-                        test_query = "Elden" 
-                        search_res = Searcher.search_source_1(test_query, scraper, page=1)
+                s1_config = config["sources"].get("source_1")
+                if s1_config:
+                    # STEP 1: Version Map
+                    broadcast_event("status", "VALIDATION STEP 1/2: Checking Version Map...")
+                    v_map = Searcher.fetch_source_versions(scraper, s1_config)
+                    
+                    if not v_map:
+                        broadcast_event("error", "Step 1 Failed: Version Map could not be loaded. Check list_url and selectors.")
+                        return
+
+                    # STEP 2: Search Query
+                    broadcast_event("status", "VALIDATION STEP 2/2: Testing Search Indexing...")
+                    test_query = "Elden" 
+                    search_res = Searcher.search_source_1(test_query, scraper, page=1)
+                    
+                    if search_res and search_res.get("results"):
+                        found = len(search_res["results"])
+                        broadcast_event("complete", {"message": f"Validation Complete: Step 1 (OK), Step 2 ({found} items found). Framework Activated."})
+                    else:
+                        broadcast_event("error", "Step 2 Failed: Search returned no results. Check grid/item selectors.")
                         
-                        if search_res and search_res.get("results"):
-                            found = len(search_res["results"])
-                            broadcast_event("complete", {"message": f"Validation Complete: Step 1 (OK), Step 2 ({found} items found). Framework Activated."})
-                        else:
-                            broadcast_event("error", "Step 2 Failed: Search returned no results. Check grid/item selectors.")
-                            
-                except Exception as e:
-                    logger.error(f"Validation thread error: {e}")
-                    broadcast_event("error", f"Validation Crashed: {str(e)}")
-            
-            threading.Thread(target=validate_task, daemon=True).start()
+            except Exception as e:
+                logger.error(f"Validation thread error: {e}")
+                broadcast_event("error", f"Validation Crashed: {str(e)}")
         
-        return {"status": "ok", "message": "Sources updated and presets applied."}
+        threading.Thread(target=validate_task, daemon=True).start()
+        
+        return {"status": "ok", "message": "Sources saved. Validation starting..."}
     
     return {"status": "error", "message": "No URLs provided."}
 
@@ -1188,24 +1198,32 @@ async def add_to_library(request: AddLibraryRequest):
             # Clean the name
             clean_name = get_name_from_url(url)
             
-            # Try to get version immediately if scraper is ready
-            version = "N/A"
-            if scraper_ready:
-                try:
-                    version = get_version_from_source(url, scraper)
-                except: pass
-
             data[game_hash] = {
                 "name": clean_name,
                 "alias": clean_name,
                 "link": url,
                 "exe": "",
                 "args": [],
-                "version": version,
+                "version": "Pending",
                 "playtime": 0,
                 "categorys": ["Not Installed"]
             }
             save_json(config_path, data)
+
+            # Fetch version in background if possible
+            if scraper_ready:
+                def fetch_ver_bg():
+                    try:
+                        v = get_version_from_source(url, scraper)
+                        if v:
+                            d = load_json(config_path)
+                            if game_hash in d:
+                                d[game_hash]["version"] = v
+                                save_json(config_path, d)
+                                broadcast_event("complete", {"message": f"Version updated for {clean_name}"})
+                    except: pass
+                threading.Thread(target=fetch_ver_bg, daemon=True).start()
+
             return {"status": "added", "id": game_hash}
         else:
             return {"status": "exists", "id": game_hash}
