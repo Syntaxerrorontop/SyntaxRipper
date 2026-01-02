@@ -1532,40 +1532,134 @@ function showDetails(gameId) {
 function closeDetails() { document.getElementById('details-panel').classList.remove('active'); document.getElementById('empty-state').style.display = 'flex'; selectedGameId = null; filterTree(); }
 
 // --- Search ---
-async function performSearch() {
+let currentSearchPage = 1;
+
+async function performSearch(page = 1) {
     const q = document.getElementById('searchInput').value, cat = document.getElementById('searchCategory').value; if (!q) return;
-    const grid = document.getElementById('searchResults'); grid.innerHTML = '<p style="color:#888">Searching...</p>';
+    currentSearchPage = page;
+    const grid = document.getElementById('searchResults'); 
+    
+    const loaderHtml = '<div style="grid-column: 1/-1; text-align: center; padding: 40px;"><div class="spinner"></div><p style="color:var(--text-dim); margin-top: 10px;">Searching...</p></div>';
+    grid.innerHTML = loaderHtml;
+
     try {
-        const res = await fetch(`${API_URL}/api/search`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({query:q, category:cat}) });
-        const data = await res.json(); renderSearchResults(data.results || [], cat);
+        const res = await fetch(`${API_URL}/api/search`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({query:q, category:cat, page: page}) });
+        const data = await res.json(); 
+        renderSearchResults(data, cat); 
     } catch(e) { grid.innerHTML = '<p style="color:red">Search failed.</p>'; }
 }
 
-function renderSearchResults(results, category) {
-    const grid = document.getElementById('searchResults'); grid.innerHTML = '';
-    if (!results || results.length === 0) { grid.innerHTML = '<p>No results found.</p>'; return; }
-    results.forEach(r => {
+function renderSearchResults(data, category) {
+    const results = data.results || [];
+    const grid = document.getElementById('searchResults');
+    grid.innerHTML = '';
+    
+    grid.style.display = 'grid';
+    grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(180px, 1fr))';
+    grid.style.gap = '20px';
+    grid.style.paddingBottom = '60px'; 
+
+    if (!results || results.length === 0) {
+        grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #888; padding: 20px;">No results found.</p>';
+        return;
+    }
+
+    const isGame = (category === 'Games');
+
+    results.forEach((r, index) => {
         const d = document.createElement('div');
-        d.className = 'search-result-item'; // Add class for selector
-        d.setAttribute('tabindex', '0'); // Make focusable
-        d.style.cssText = 'padding:15px; background:#252526; border-radius:6px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; outline:none;';
-        const attrTitle = r.title.replace(/"/g, '&quot;'), attrUrl = r.url.replace(/"/g, '&quot;');
-        
-        // Enter key to click
-        d.onkeydown = (e) => { if (e.key === 'Enter') { showSearchPreview(r.title, r.url); } };
-        
-        d.onclick = () => showSearchPreview(r.title, r.url);
-        let actionButtons = '';
-        if (category === 'Games') {
+        d.className = 'search-result-item card';
+        d.style.cssText = `
+            background: var(--card-bg);
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: transform var(--transition-speed), box-shadow var(--transition-speed);
+            position: relative;
+            border: 1px solid var(--border-color);
+            animation: fadeIn 0.4s ease forwards;
+            ${isGame ? 'cursor: pointer;' : 'cursor: default;'}
+        `;
+
+        if (isGame) {
+            d.onmouseover = () => { d.style.transform = 'translateY(-5px)'; d.style.boxShadow = `0 5px 15px ${getComputedStyle(document.body).getPropertyValue('--shadow-color')}`; };
+            d.onmouseout = () => { d.style.transform = 'translateY(0)'; d.style.boxShadow = 'none'; };
+            d.onclick = () => showSearchPreview(r.title, r.url);
+        } else {
+            d.onmouseover = () => { d.style.transform = 'translateY(-2px)'; d.style.boxShadow = `0 2px 8px ${getComputedStyle(document.body).getPropertyValue('--shadow-color')}`; };
+            d.onmouseout = () => { d.style.transform = 'translateY(0)'; d.style.boxShadow = 'none'; };
+        }
+
+        const attrTitle = r.title.replace(/"/g, '&quot;');
+        const attrUrl = r.url ? r.url.replace(/"/g, '&quot;') : '';
+        const picUrl = r.picture || 'assets/logo.png';
+
+        let html = `
+            <div style="padding: 10px; font-weight: 500; font-size: 14px; color: var(--text-color); min-height: 40px; display: flex; align-items: center; justify-content: center; text-align: center; background: var(--sidebar-color);">
+                ${r.title}
+            </div>
+            <div style="position: relative; width: 100%; padding-top: 140%; background: var(--input-bg);">
+                <img src="${picUrl}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover;" onerror="this.src='assets/logo.png'">
+            </div>
+        `;
+
+        if (isGame) {
             const existing = libraryData.find(g => g.name === r.title);
+            let actionButtons = '';
             if (existing) {
-                if (existing.installed) actionButtons = `<button class="btn btn-danger" style="padding:6px 15px; font-size:13px;" data-id="${existing.id}" data-title="${attrTitle}" onclick="event.stopPropagation(); uninstallGame(this.dataset.id, this.dataset.title)">Uninstall</button>`;
-                else actionButtons = `<button class="btn btn-secondary" style="padding:6px 15px; font-size:13px;" data-id="${existing.id}" data-title="${attrTitle}" onclick="event.stopPropagation(); removeLibraryGame(this.dataset.id, this.dataset.title)">Remove</button>`;
-            } else actionButtons = `<div style="display:flex; gap:10px;"><button class="btn btn-secondary" style="padding:6px 15px; font-size:13px;" data-url="${attrUrl}" data-title="${attrTitle}" onclick="event.stopPropagation(); addToLibrary.call(this)">+ Lib</button><button class="btn btn-primary" style="padding:6px 15px; font-size:13px;" data-url="${attrUrl}" data-title="${attrTitle}" onclick="event.stopPropagation(); startDownload.call(this)">Download</button></div>`;
-        } else actionButtons = `<button class="btn btn-primary" style="padding:6px 15px; font-size:13px;" data-url="${attrUrl}" data-title="${attrTitle}" onclick="event.stopPropagation(); startDownload.call(this)">Download</button>`;
-        d.innerHTML = `<div style="font-weight:500; font-size:16px;">${r.title}</div>${actionButtons}`;
+                if (existing.installed) {
+                    actionButtons = `<button class="btn btn-danger" style="width: 100%; border-radius: 0; padding: 8px;" data-id="${existing.id}" data-title="${attrTitle}" onclick="event.stopPropagation(); uninstallGame(this.dataset.id, this.dataset.title)">Uninstall</button>`;
+                } else {
+                    actionButtons = `<button class="btn btn-secondary" style="width: 100%; border-radius: 0; padding: 8px;" data-id="${existing.id}" data-title="${attrTitle}" onclick="event.stopPropagation(); removeLibraryGame(this.dataset.id, this.dataset.title)">Remove</button>`;
+                }
+            } else {
+                actionButtons = `
+                    <div style="display: flex; width: 100%;">
+                        <button class="btn btn-secondary" style="flex: 1; border-radius: 0; border-right: 1px solid var(--border-color); padding: 8px; font-size: 12px;" data-url="${attrUrl}" data-title="${attrTitle}" onclick="event.stopPropagation(); addToLibrary.call(this)">+ Lib</button>
+                        <button class="btn btn-primary" style="flex: 1; border-radius: 0; padding: 8px; font-size: 12px;" data-url="${attrUrl}" data-title="${attrTitle}" onclick="event.stopPropagation(); startDownload.call(this)">Download</button>
+                    </div>`;
+            }
+            html += `<div style="margin-top: auto;">${actionButtons}</div>`;
+        } else if (category === 'Films' || category === 'Series' || category === 'Anime') {
+            if (r.episode_info) {
+                html += `<div style="position: absolute; top: 50px; right: 5px; background: rgba(0,0,0,0.7); color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 10px;">${r.episode_info}</div>`;
+            }
+        }
+
+        d.innerHTML = html;
         grid.appendChild(d);
     });
+
+    const totalPages = data.pages || 1;
+    
+    if (totalPages > 1 || currentSearchPage > 1) {
+        const controls = document.createElement('div');
+        controls.className = 'pagination-controls';
+        controls.style.cssText = 'grid-column: 1/-1; display: flex; justify-content: center; align-items: center; gap: 20px; padding: 20px; margin-top: 20px;';
+        
+        const prevBtn = document.createElement('button');
+        prevBtn.className = 'btn btn-secondary';
+        prevBtn.textContent = '← Previous';
+        prevBtn.disabled = currentSearchPage <= 1;
+        prevBtn.onclick = () => performSearch(currentSearchPage - 1);
+        
+        const info = document.createElement('span');
+        info.style.color = 'var(--text-dim)';
+        info.textContent = `Page ${currentSearchPage} of ${totalPages}`;
+        
+        const nextBtn = document.createElement('button');
+        nextBtn.className = 'btn btn-secondary';
+        nextBtn.textContent = 'Next →';
+        nextBtn.disabled = currentSearchPage >= totalPages;
+        nextBtn.onclick = () => performSearch(currentSearchPage + 1);
+        
+        controls.appendChild(prevBtn);
+        controls.appendChild(info);
+        controls.appendChild(nextBtn);
+        
+        grid.appendChild(controls);
+    }
 }
 
 // --- Downloads ---
@@ -1625,16 +1719,14 @@ function selectScript(scriptId) {
     document.querySelectorAll('.script-item').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.script-panel').forEach(el => el.style.display = 'none');
     
-    // Find item by text (hacky but works for now as ID isn't on item)
-    // Actually we passed scriptId to onclick, let's use that
-    // Add id to items or just logic?
-    // Let's assume scriptId matches the div ID suffix
-    
     const panel = document.getElementById(`script-${scriptId}`);
     if (panel) panel.style.display = 'block';
 
     if (scriptId === 'collections-manager') {
         loadCollections();
+    }
+    if (scriptId === 'theme-editor') {
+        initThemeEditor();
     }
 }
 
@@ -1812,6 +1904,7 @@ async function openFolder(id) { try { await fetch(`${API_URL}/api/open-folder/${
 function openFullscreen(src) { 
     if (!src) return; 
     const o = document.getElementById('fullscreen-overlay'), i = document.getElementById('fullscreen-img'); 
+    i.setAttribute("referrerpolicy", "no-referrer");
     i.src = src; 
     o.style.display = 'flex'; 
     updateFullscreenCounter();
@@ -1831,7 +1924,10 @@ function changeSlide(dir) {
 
 function updateGalleryImage() {
     const img = document.getElementById('gallery-img'), cnt = document.getElementById('gallery-count');
-    if (img) { img.src = currentGalleryImages[currentGalleryIndex]; img.onerror = () => { img.src = 'https://via.placeholder.com/800x450?text=No+Image'; }; }
+    if (img) { 
+        img.src = currentGalleryImages[currentGalleryIndex]; 
+        img.onerror = () => { img.src = 'assets/logo.png'; }; 
+    }
     if (cnt) cnt.textContent = `${currentGalleryIndex + 1} / ${currentGalleryImages.length}`;
 }
 
@@ -2512,3 +2608,199 @@ fetchVersion();
 loadSettings().then(() => {
     switchTab('library');
 });
+
+// --- Theme Editor ---
+function initThemeEditor() {
+    const style = getComputedStyle(document.documentElement);
+    const mapping = {
+        "theme-bg": "--bg-color",
+        "theme-sidebar": "--sidebar-color",
+        "theme-accent": "--accent-color",
+        "theme-card": "--card-bg",
+        "theme-input": "--input-bg",
+        "theme-text": "--text-color",
+        "theme-border": "--border-color",
+        "theme-hover": "--hover-color",
+        "theme-text-dim": "--text-dim",
+        "theme-shadow": "--shadow-color",
+        "theme-radius": "--border-radius",
+        "theme-font": "--font-family",
+        "theme-speed": "--transition-speed",
+        "theme-danger": "--danger-color",
+        "theme-danger-border": "--danger-border",
+        "theme-header": "--header-color",
+        "theme-success": "--success-color",
+        "theme-warning": "--warning-color"
+    };
+
+    for (const [id, varName] of Object.entries(mapping)) {
+        const val = style.getPropertyValue(varName).trim();
+        const input = document.getElementById(id);
+        const textInput = document.getElementById(`${id}-text`);
+        if (input && val) {
+            if (val.startsWith("#") || input.type === "text") {
+                input.value = val;
+                if (textInput) textInput.value = val;
+            }
+        }
+        
+        if (input) {
+            input.oninput = (e) => {
+                document.documentElement.style.setProperty(varName, e.target.value);
+                if (textInput) textInput.value = e.target.value;
+            };
+        }
+        if (textInput) {
+            textInput.onchange = (e) => {
+                document.documentElement.style.setProperty(varName, e.target.value);
+                input.value = e.target.value;
+            };
+        }
+    }
+}
+
+async function saveCustomTheme() {
+    const name = document.getElementById("theme-name").value.trim();
+    if (!name) { await showAlert("Error", "Please enter a theme name."); return; }
+    
+    const themeKey = name.toLowerCase().replace(/\s+/g, "_");
+    
+    const newTheme = {
+        "--bg-color": document.getElementById("theme-bg").value,
+        "--sidebar-color": document.getElementById("theme-sidebar").value,
+        "--accent-color": document.getElementById("theme-accent").value,
+        "--text-color": document.getElementById("theme-text").value,
+        "--text-dim": document.getElementById("theme-text-dim").value,
+        "--border-color": document.getElementById("theme-border").value,
+        "--card-bg": document.getElementById("theme-card").value,
+        "--input-bg": document.getElementById("theme-input").value,
+        "--hover-color": document.getElementById("theme-hover").value,
+        "--shadow-color": document.getElementById("theme-shadow").value,
+        "--border-radius": document.getElementById("theme-radius").value,
+        "--font-family": document.getElementById("theme-font").value,
+        "--transition-speed": document.getElementById("theme-speed").value,
+        "--danger-color": document.getElementById("theme-danger").value,
+        "--danger-border": document.getElementById("theme-danger-border").value,
+        "--header-color": document.getElementById("theme-header").value,
+        "--success-color": document.getElementById("theme-success").value,
+        "--warning-color": document.getElementById("theme-warning").value
+    };
+
+    if (!currentSettings.custom_themes) currentSettings.custom_themes = {};
+    currentSettings.custom_themes[themeKey] = newTheme;
+    currentSettings.theme = themeKey;
+    
+    await fetch(`${API_URL}/api/settings`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(currentSettings)
+    });
+    
+    addThemeOption(themeKey, name);
+    await showAlert("Success", `Theme ${name} saved and applied!`);
+}
+
+function addThemeOption(key, name) {
+    const select = document.getElementById("themeInput");
+    if (!select.querySelector(`option[value="${key}"]`)) {
+        const opt = document.createElement("option");
+        opt.value = key;
+        opt.textContent = name;
+        select.appendChild(opt);
+    }
+    select.value = key;
+}
+
+async function exportTheme() {
+    const theme = {
+        name: document.getElementById("theme-name").value || "Custom Theme",
+        colors: {
+            "--bg-color": document.getElementById("theme-bg").value,
+            "--sidebar-color": document.getElementById("theme-sidebar").value,
+            "--accent-color": document.getElementById("theme-accent").value,
+            "--text-color": document.getElementById("theme-text").value,
+            "--text-dim": document.getElementById("theme-text-dim").value,
+            "--border-color": document.getElementById("theme-border").value,
+            "--card-bg": document.getElementById("theme-card").value,
+            "--input-bg": document.getElementById("theme-input").value,
+            "--hover-color": document.getElementById("theme-hover").value,
+            "--shadow-color": document.getElementById("theme-shadow").value,
+            "--border-radius": document.getElementById("theme-radius").value,
+            "--font-family": document.getElementById("theme-font").value,
+            "--transition-speed": document.getElementById("theme-speed").value,
+            "--danger-color": document.getElementById("theme-danger").value,
+            "--danger-border": document.getElementById("theme-danger-border").value,
+            "--header-color": document.getElementById("theme-header").value,
+            "--success-color": document.getElementById("theme-success").value,
+            "--warning-color": document.getElementById("theme-warning").value
+        }
+    };
+    
+    const blob = new Blob([JSON.stringify(theme, null, 2)], {type: "application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${theme.name.replace(/\s+/g, "_")}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+async function importTheme() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const theme = JSON.parse(event.target.result);
+                if (theme.colors) {
+                    document.getElementById("theme-name").value = theme.name || "";
+                    
+                    const mapping = {
+                        "--bg-color": "theme-bg",
+                        "--sidebar-color": "theme-sidebar",
+                        "--accent-color": "theme-accent",
+                        "--text-color": "theme-text",
+                        "--text-dim": "theme-text-dim",
+                        "--border-color": "theme-border",
+                        "--card-bg": "theme-card",
+                        "--input-bg": "theme-input",
+                        "--hover-color": "theme-hover",
+                        "--shadow-color": "theme-shadow",
+                        "--border-radius": "theme-radius",
+                        "--font-family": "theme-font",
+                        "--transition-speed": "theme-speed",
+                        "--danger-color": "theme-danger",
+                        "--danger-border": "theme-danger-border",
+                        "--header-color": "theme-header",
+                        "--success-color": "theme-success",
+                        "--warning-color": "theme-warning"
+                    };
+
+                    for (const [varName, id] of Object.entries(mapping)) {
+                        if (theme.colors[varName]) {
+                            const el = document.getElementById(id);
+                            if (el) {
+                                el.value = theme.colors[varName];
+                                el.dispatchEvent(new Event("input"));
+                                const txt = document.getElementById(`${id}-text`);
+                                if(txt) txt.value = el.value;
+                            }
+                        }
+                    }
+                    
+                    showAlert("Success", "Theme imported! Click Save to keep it.");
+                } else {
+                    showAlert("Error", "Invalid theme file format.");
+                }
+            } catch(err) {
+                showAlert("Error", "Failed to parse theme file.");
+            }
+        };
+        reader.readAsText(file);
+    };
+    input.click();
+}

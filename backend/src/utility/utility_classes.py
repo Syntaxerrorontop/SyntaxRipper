@@ -143,7 +143,8 @@ class UserConfig:
             "total_playtime_global": 0,
             "random_include_uninstalled": False,
             "excluded_folders": [],
-            "theme": "dark"
+            "theme": "dark",
+            "custom_themes": {}
         }
         
         File.check_existence(in_path, filename, add_content=default_data, use_json=True, quiet=quite)
@@ -215,7 +216,8 @@ class UserConfig:
         self.TOTAL_PLAYTIME_GLOBAL = self._data.get("total_playtime_global", 0)
         self.RANDOM_INCLUDE_UNINSTALLED = self._data.get("random_include_uninstalled", False)
         self.EXCLUDED_FOLDERS = self._data.get("excluded_folders", [])
-        self.THEME = self._data.get("theme", "dark")
+        self.THEME = self._data["theme"]
+        self.CUSTOM_THEMES = self._data.get("custom_themes", {})
 
     def save(self):
         self._data["shutil_move_error_replace"] = self.SHUTIL_MOVE_ERROR_REPLACE
@@ -246,6 +248,16 @@ class UserConfig:
         self._data["collapsed_categories"] = self.COLLAPSED_CATEGORIES
         self._data["media_output_path"] = self.MEDIA_OUTPUT_PATH
         self._data["discord_rpc_enabled"] = self.DISCORD_RPC_ENABLED
+        self._data["gaming_mode_enabled"] = self.GAMING_MODE_ENABLED
+        self._data["last_selected_game_id"] = self.LAST_SELECTED_GAME_ID
+        self._data["show_hidden_games"] = self.SHOW_HIDDEN_GAMES
+        self._data["total_playtime_global"] = self.TOTAL_PLAYTIME_GLOBAL
+        self._data["random_include_uninstalled"] = self.RANDOM_INCLUDE_UNINSTALLED
+        self._data["excluded_folders"] = self.EXCLUDED_FOLDERS
+        self._data["theme"] = self.THEME
+        self._data["custom_themes"] = self.CUSTOM_THEMES
+        
+        save_json(self._path, self._data)
         self._data["gaming_mode_enabled"] = self.GAMING_MODE_ENABLED
         self._data["last_selected_game_id"] = self.LAST_SELECTED_GAME_ID
         self._data["show_hidden_games"] = self.SHOW_HIDDEN_GAMES

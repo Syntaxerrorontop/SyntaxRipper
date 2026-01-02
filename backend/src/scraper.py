@@ -836,6 +836,7 @@ class UniversalScraper:
         self.logger.info("Creating undetected Chrome webdriver...")
 
         options = uc.ChromeOptions()
+        options.add_argument("--window-position=-10000,0")
         options.add_argument("--no-sandbox")
         options.add_argument("--window-size=1920,1080")
         options.add_argument("--disable-search-engine-choice-screen")

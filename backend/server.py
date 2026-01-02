@@ -516,6 +516,7 @@ async def websocket_endpoint(websocket: WebSocket):
 class SearchRequest(BaseModel):
     query: str
     category: str = "Games"
+    page: int = 1
 
 class DownloadRequest(BaseModel):
     url: str
@@ -543,6 +544,7 @@ class SettingsUpdate(BaseModel):
     show_hidden_games: bool = False
     random_include_uninstalled: bool = False
     theme: str = "dark"
+    custom_themes: dict = {}
 
 class AddLibraryRequest(BaseModel):
     title: str
@@ -1106,40 +1108,11 @@ async def add_to_library(request: AddLibraryRequest):
 @app.post("/api/search")
 async def search(request: SearchRequest):
     if request.category == "Games":
-        import difflib
-        data = Searcher.fetch_game_list(scraper)
-        query = request.query.lower()
+        results = Searcher.games(request.query, scraper, page=request.page)
+        return results
         
-        results_with_scores = []
-        
-        for name, url in data.items():
-            name_lower = name.lower()
-            score = 0
-            
-            # Priority 1: Starts with query (Highest)
-            if name_lower.startswith(query):
-                score = 1.2
-            # Priority 2: Substring match
-            elif query in name_lower:
-                score = 1.0
-            
-            if score > 0:
-                full_url = url if url.startswith("http") else "https://steamrip.com" + url
-                results_with_scores.append({
-                    "title": name,
-                    "url": full_url,
-                    "score": score
-                })
-        
-        # Sort by score (descending), then by title length (ascending) for cleaner results
-        results_with_scores.sort(key=lambda x: (-x["score"], len(x["title"])))
-        
-        # Limit to top 50
-        final_results = [{"title": r["title"], "url": r["url"]} for r in results_with_scores[:50]]
-        return {"results": final_results}
-        
-    elif request.category in ["Movies", "Series", "Animes"]:
-        results = Searcher.movie(request.query)
+    elif request.category in ["Movies", "Series", "Animes", "Films"]:
+        results = Searcher.movie(request.query, page=request.page)
         return results
     
     return {"results": []}
@@ -1263,7 +1236,8 @@ def get_settings():
         "show_hidden_games": config.SHOW_HIDDEN_GAMES,
         "random_include_uninstalled": getattr(config, "RANDOM_INCLUDE_UNINSTALLED", False),
         "excluded_folders": getattr(config, "EXCLUDED_FOLDERS", []),
-        "theme": getattr(config, "THEME", "dark")
+        "theme": getattr(config, "THEME", "dark"),
+        "custom_themes": getattr(config, "CUSTOM_THEMES", {})
     }
 
 class ReorderCategoriesRequest(BaseModel):
@@ -1331,6 +1305,9 @@ def update_settings(settings: SettingsUpdate):
     config.SHOW_HIDDEN_GAMES = settings.show_hidden_games
     config.RANDOM_INCLUDE_UNINSTALLED = settings.random_include_uninstalled
     config.THEME = settings.theme
+    
+    if hasattr(settings, "custom_themes"):
+        config.CUSTOM_THEMES = settings.custom_themes
 
     # New Settings
     if hasattr(settings, "real_debrid_key"):
@@ -1438,6 +1415,9 @@ async def fix_defender_exclusions():
     """Adds all configured game paths to Windows Defender exclusions."""
     user_config = UserConfig(CONFIG_FOLDER, "userconfig.json")
     paths = user_config.GAME_PATHS
+    cache_path = user_config.DOWNLOAD_CACHE_PATH
+    if cache_path and cache_path not in paths:
+        paths.append(cache_path)
     
     if not paths:
         raise HTTPException(status_code=400, detail="No game paths configured")

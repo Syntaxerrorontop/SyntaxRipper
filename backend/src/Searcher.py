@@ -5,6 +5,7 @@ import math
 import re
 import time
 from bs4 import BeautifulSoup
+from urllib.parse import urljoin
 
 # Local imports
 try:
@@ -19,7 +20,42 @@ class Searcher:
     _game_cache = None
     _cache_timestamp = 0
     CACHE_DURATION = 3600 * 24 # 24 Hours
-
+    
+    @staticmethod
+    def games(query, scraper, page=1):
+        url = f"https://steamrip.com/page/{page}/?s={query}"
+        data = {"amount": 0, "results": [], "pages": 0, "page_amount": 0}
+        
+        try:
+            soup: BeautifulSoup = scraper.get_soup(url, timeout=10)
+            element = soup.select_one("#masonry-grid")
+            if element:
+                all_game_elements = element.find_all(class_="container-wrapper post-element tie-standard masonry-brick tie-animate-slideInUp")
+                if not all_game_elements:
+                    all_game_elements = element.find_all(class_="container-wrapper post-element tie-standard masonry-brick")
+                
+                if not all_game_elements:
+                    return {"amount": 0, "results": [], "pages": 0, "page_amount": 0}
+                
+                for game in all_game_elements:
+                    a_tag = game.select_one("a")
+                    div_tag = game.select_one("div")
+                    
+                    picture_url = div_tag.get("data-back")
+                    href_url = urljoin("https://steamrip.com", a_tag.get("href"))
+                    name = a_tag.text.strip().split(" Free Download")[0]
+                    
+                    data["results"].append({
+                        "title": name,
+                        "url": href_url, 
+                        "picture": picture_url # Can directly be shown is like an image typicly 584x800 I would love to have like a cachel system were the name is above the picture Please downscale that its matches with movies
+                    })
+                
+            return data
+        except Exception as e:
+            logging.error(f"Game search error: {e}")
+            return data
+        
     @staticmethod
     def movie(query, page=1):
         data = {"amount": 0, "results": [], "pages": 0, "page_amount": 0}
@@ -45,8 +81,9 @@ class Searcher:
             except:
                  data["amount"] = 0
             
-            cites = element.find_all("cite")
-            for cite in cites:
+            articles = element.find_all("article")
+            for article in articles:
+                cite = article.find("cite")
                 series = False
                 a_tag = cite.find("a")
                 if not a_tag: continue
@@ -57,16 +94,24 @@ class Searcher:
                 match = re.search(r"S(\d{1,2})E(\d{1,2})", title, re.IGNORECASE)
                 episode_info = None
                 
+                img_tag = article.find("img", class_="cover-opacity")
+                img_url = f"https://filmpalast.to{img_tag['src']}" if img_tag else None
+                
                 if match:
                     series = True
                     episode_info = match.group(0)
                     title = title.replace(episode_info, "").strip()
                 
+                if series:
+                    logging.debug(f"Found series: {title} - {episode_info}")
+                    continue
+                
                 data["results"].append({
                     "title": title,
                     "url": "https:" + href,
                     "series": series,
-                    "episode_info": episode_info if series else None
+                    "episode_info": episode_info if series else None,
+                    "picture": img_url
                 })
             
             data["pages"] = math.ceil(data["amount"] / 20) if len(data["results"]) > 0 else 0

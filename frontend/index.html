@@ -21,6 +21,26 @@
             --transition-speed: 0.2s;
         }
 
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.1);
+            border-left-color: var(--accent-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
         * {
             transition: background-color var(--transition-speed), border-color var(--transition-speed), color var(--transition-speed), box-shadow var(--transition-speed);
         }
@@ -32,7 +52,9 @@
             background-color: var(--bg-color);
             color: var(--text-color);
             height: 100vh;
-            display: flex;
+            width: 100vw;
+            display: grid;
+            grid-template-columns: auto 1fr;
             overflow: hidden;
         }
 
@@ -106,8 +128,8 @@
         #sidebar img[style*="display: none"] + #logo-placeholder { display: flex; }
 
         /* --- Main Layout --- */
-        #main-container { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-        #content { flex: 1; padding: 0; overflow: hidden; display: flex; }
+        #main-container { flex: 1; position: relative; overflow: hidden; height: 100%; }
+        #content { position: absolute; top: 0; left: 0; right: 0; bottom: 25px; overflow: hidden; display: flex; }
         .view { flex: 1; display: none; flex-direction: column; animation: fadeIn 0.2s; }
         .view.active { display: flex; }
         
@@ -149,7 +171,6 @@
         /* Nested Categories Indentation */
         #library-tree details details {
             margin-left: 15px;
-            border-left: 1px solid var(--border-color);
         }
 
         /* Tree Items */
@@ -187,7 +208,12 @@
 
         .tree-item.installed { color: var(--text-color); font-weight: 400; }
         .tree-item:hover { color: white; background-color: var(--hover-color); }
-        .tree-item.selected { color: white; background-color: var(--hover-color); border-left: 3px solid var(--accent-color); }
+        .tree-item.selected { 
+            color: white; 
+            background-color: var(--hover-color); 
+            border-left: 3px solid var(--accent-color); 
+            box-shadow: inset 5px 0 10px -3px var(--accent-color);
+        }
         .tree-item.uninstalled { opacity: 0.6; font-style: italic; }
 
         /* --- Details Panel --- */
@@ -281,11 +307,15 @@
         .slide-arrow:hover { background: rgba(0, 0, 0, 0.8); }
 
         /* --- Other Views --- */
-        .simple-header { padding: 20px 40px; border-bottom: 1px solid var(--border-color); }
-        .simple-content { padding: 20px 40px; }
+        .simple-header { padding: 20px 40px; border-bottom: 1px solid var(--border-color); box-sizing: border-box; }
+        .simple-content { padding: 20px 40px; box-sizing: border-box; }
         
         /* --- Footer --- */
         #footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100vw;
             height: 25px;
             background-color: var(--accent-color);
             color: white;
@@ -294,6 +324,8 @@
             align-items: center;
             padding: 0 10px;
             justify-content: space-between;
+            box-sizing: border-box;
+            z-index: 1000;
         }
         
         /* Scrollbar */
@@ -307,7 +339,7 @@
 
         /* Description Styling */
         #detail-description p { margin-bottom: 15px; }
-        #detail-description h3, #detail-description h2 { color: white; margin-top: 20px; margin-bottom: 10px; font-size: 1.1em; }
+        #detail-description h3, #detail-description h2 { color: var(--header-color); margin-top: 20px; margin-bottom: 10px; font-size: 1.1em; }
         #detail-description ul { padding-left: 20px; margin-bottom: 15px; }
         #detail-description li { margin-bottom: 5px; }
         #detail-description br { display: block; content: ""; margin-top: 10px; }
@@ -328,8 +360,10 @@
         /* Settings Styles */
         .settings-wrapper { 
             flex: 1;
+            overflow-y: auto;
             max-width: 900px; 
-            margin: 0 auto; 
+            margin: 0 auto;
+            box-sizing: border-box; 
             padding: 20px;
             overflow-y: auto;
             width: 100%;
@@ -426,13 +460,13 @@
         .btn:active { transform: scale(0.98); }
         
         .btn-danger { 
-            background-color: #2c1e1e; 
-            color: #ff6b6b; 
-            border: 1px solid #5a2a2a;
+            background-color: transparent; 
+            color: var(--danger-color); 
+            border: 1px solid var(--danger-border);
         }
         .btn-danger:hover { 
-            background-color: #3e1e1e; 
-            border-color: #ff6b6b; 
+            background-color: var(--hover-color); 
+            border-color: var(--danger-color); 
         }
 
         /* Toggle Switch */
@@ -488,7 +522,7 @@
         .bp-card:focus {
             transform: scale(1.15);
             border-color: var(--accent-color);
-            box-shadow: 0 15px 40px rgba(0, 122, 204, 0.6);
+            box-shadow: 0 15px 40px var(--shadow-color);
             z-index: 10;
             outline: none !important;
         }
@@ -568,7 +602,7 @@
         .btn:focus, .nav-item:focus, .tree-item:focus, summary:focus {
             outline: 2px solid #fff !important;
             outline-offset: 2px !important;
-            box-shadow: 0 0 10px rgba(0, 122, 204, 0.5);
+            box-shadow: 0 0 10px var(--accent-color);
         }
 
         /* Remove default outline for mouse users if desired, but keep for keyboard/controller */
@@ -622,7 +656,7 @@
     <div id="main-container">
         <div id="content">
             <!-- Big Picture View -->
-            <div id="view-bigpicture" class="view" style="background: linear-gradient(135deg, #000428 0%, #004e92 100%); z-index: 1000; position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none;">
+            <div id="view-bigpicture" class="view" style="background: linear-gradient(135deg, #000428 0%, #004e92 100%); z-index: 2000; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; display: none;">
                 <div style="padding: 40px; height: 100%; display: flex; flex-direction: column;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; flex-shrink: 0;">
                         <h1 style="font-size: 48px; margin: 0; text-shadow: 0 4px 10px rgba(0,0,0,0.5);">Big Picture</h1>
@@ -672,7 +706,7 @@
                     <div id="library-tree-container">
                         <div id="tree-search" style="display: flex; gap: 5px;">
                             <input type="text" id="librarySearch" placeholder="Filter..." onkeyup="filterTree()" style="flex: 1;">
-                            <select id="librarySort" onchange="filterTree()" style="width: 80px; background: #252526; color: white; border: 1px solid #333; border-radius: 4px;">
+                            <select id="librarySort" onchange="filterTree()" style="width: 80px; background: var(--input-bg); color: var(--text-color); border: 1px solid var(--border-color); border-radius: var(--border-radius);">
                                 <option value="name">A-Z</option>
                                 <option value="time">Time</option>
                                 <option value="added">New</option>
@@ -764,9 +798,9 @@
             <!-- Search View -->
             <div id="view-search" class="view">
                 <div class="simple-header"><h1>Store</h1></div>
-                <div class="simple-content" id="search-content">
-                    <div style="display: flex; align-items: center; gap: 10px; position: relative; z-index: 20;">
-                        <select id="searchCategory" style="padding: 10px; background: #222; color: white; border: 1px solid #333; border-radius: 4px; cursor: pointer;">
+                <div class="simple-content" id="search-content" style="overflow-y: auto; height: 100%; padding: 0 20px;">
+                    <div style="display: flex; align-items: center; gap: 10px; position: sticky; top: 0; background: var(--bg-color); z-index: 100; padding: 20px 0; border-bottom: 1px solid var(--border-color); box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+                        <select id="searchCategory" style="padding: 10px; background: var(--input-bg); color: var(--text-color); border: 1px solid var(--border-color); border-radius: var(--border-radius); cursor: pointer;">
                             <option value="Games">Games</option>
                             <option value="Movies">Movies</option>
                             <option value="Series">Series</option>
@@ -775,11 +809,11 @@
                         <input type="text" id="searchInput" placeholder="Search..." style="flex: 1; padding: 10px; border-radius: 4px; border: 1px solid #333; background: #222; color: white;" onkeyup="if(event.key==='Enter') performSearch()">
                         <button class="btn btn-primary" onclick="performSearch()">Search</button>
                     </div>
-                    <div id="searchResults" style="margin-top: 20px; display: grid; gap: 10px;"></div>
+                    <div id="searchResults" style="display: grid; gap: 10px; padding-top: 20px;"></div>
                 </div>
 
                 <!-- Search Preview Overlay -->
-                <div id="search-preview-panel" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-color); z-index: 30; overflow-y: auto;">
+                <div id="search-preview-panel" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg-color); z-index: 200; overflow-y: auto;">
                     <button class="close-btn" onclick="closeSearchPreview()">×</button>
                     <div class="hero-image" id="preview-hero"></div>
                     <div class="details-content">
@@ -888,9 +922,14 @@
                         <div class="script-item" onclick="selectScript('collections-manager')" style="padding: 10px; cursor: pointer; background: #252526; border-radius: 4px; margin-bottom: 5px;">
                             Collections Manager
                         </div>
+                        <div class="script-item" onclick="selectScript('theme-editor')" style="padding: 10px; cursor: pointer; background: #252526; border-radius: 4px; margin-bottom: 5px;">
+                            Theme Editor
+                        </div>
                     </div>
                     <!-- Script Content -->
                     <div style="flex: 1; padding: 20px; overflow-y: auto;">
+                        
+                        <!-- Universal Downloader -->
                         <div id="script-universal-downloader" class="script-panel">
                             <h2>Universal Downloader</h2>
                             <p style="color: #aaa; margin-bottom: 20px;">
@@ -906,6 +945,152 @@
                             </div>
                         </div>
 
+                        <!-- Theme Editor -->
+                        <div id="script-theme-editor" class="script-panel" style="display: none;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                <h2 style="margin: 0;">🎨 Theme Editor</h2>
+                                <div style="display: flex; gap: 10px;">
+                                    <button class="btn btn-secondary" onclick="importTheme()">Import JSON</button>
+                                    <button class="btn btn-secondary" onclick="exportTheme()">Export JSON</button>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Theme Name</label>
+                                <div class="input-row">
+                                    <input type="text" id="theme-name" placeholder="My Custom Theme">
+                                    <button class="btn btn-primary" onclick="saveCustomTheme()">Save & Apply</button>
+                                </div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-height: 60vh; overflow-y: auto; padding-right: 10px;">
+                                <div class="form-group">
+                                    <label>Background Color</label>
+                                    <div class="input-row">
+                                        <input type="color" id="theme-bg" value="#121212" style="padding: 0; height: 40px; width: 60px; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;">
+                                        <input type="text" id="theme-bg-text" value="#121212" onchange="document.getElementById('theme-bg').value = this.value">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Sidebar Color</label>
+                                    <div class="input-row">
+                                        <input type="color" id="theme-sidebar" value="#1e1e1e" style="padding: 0; height: 40px; width: 60px; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;">
+                                        <input type="text" id="theme-sidebar-text" value="#1e1e1e" onchange="document.getElementById('theme-sidebar').value = this.value">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Accent Color</label>
+                                    <div class="input-row">
+                                        <input type="color" id="theme-accent" value="#007acc" style="padding: 0; height: 40px; width: 60px; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;">
+                                        <input type="text" id="theme-accent-text" value="#007acc" onchange="document.getElementById('theme-accent').value = this.value">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Card Background</label>
+                                    <div class="input-row">
+                                        <input type="color" id="theme-card" value="#1e1e1e" style="padding: 0; height: 40px; width: 60px; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;">
+                                        <input type="text" id="theme-card-text" value="#1e1e1e" onchange="document.getElementById('theme-card').value = this.value">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Input Background</label>
+                                    <div class="input-row">
+                                        <input type="color" id="theme-input" value="#161616" style="padding: 0; height: 40px; width: 60px; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;">
+                                        <input type="text" id="theme-input-text" value="#161616" onchange="document.getElementById('theme-input').value = this.value">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Text Color</label>
+                                    <div class="input-row">
+                                        <input type="color" id="theme-text" value="#e0e0e0" style="padding: 0; height: 40px; width: 60px; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;">
+                                        <input type="text" id="theme-text-text" value="#e0e0e0" onchange="document.getElementById('theme-text').value = this.value">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Border Color</label>
+                                    <div class="input-row">
+                                        <input type="color" id="theme-border" value="#333333" style="padding: 0; height: 40px; width: 60px; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;">
+                                        <input type="text" id="theme-border-text" value="#333333" onchange="document.getElementById('theme-border').value = this.value">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Hover Color</label>
+                                    <div class="input-row">
+                                        <input type="color" id="theme-hover" value="#2d2d30" style="padding: 0; height: 40px; width: 60px; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;">
+                                        <input type="text" id="theme-hover-text" value="#2d2d30" onchange="document.getElementById('theme-hover').value = this.value">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Dimmed Text Color</label>
+                                    <div class="input-row">
+                                        <input type="color" id="theme-text-dim" value="#888888" style="padding: 0; height: 40px; width: 60px; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;">
+                                        <input type="text" id="theme-text-dim-text" value="#888888" onchange="document.getElementById('theme-text-dim').value = this.value">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Shadow Color (RGBA)</label>
+                                    <div class="input-row">
+                                        <input type="text" id="theme-shadow" value="rgba(0,0,0,0.5)">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Border Radius</label>
+                                    <div class="input-row">
+                                        <input type="text" id="theme-radius" value="6px">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Font Family</label>
+                                    <div class="input-row">
+                                        <input type="text" id="theme-font" value="'Segoe UI', system-ui, sans-serif">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Transition Speed</label>
+                                    <div class="input-row">
+                                        <input type="text" id="theme-speed" value="0.2s">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Danger Color</label>
+                                    <div class="input-row">
+                                        <input type="color" id="theme-danger" value="#ff6b6b" style="padding: 0; height: 40px; width: 60px; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;">
+                                        <input type="text" id="theme-danger-text" value="#ff6b6b" onchange="document.getElementById('theme-danger').value = this.value">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Danger Border</label>
+                                    <div class="input-row">
+                                        <input type="color" id="theme-danger-border" value="#5a2a2a" style="padding: 0; height: 40px; width: 60px; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;">
+                                        <input type="text" id="theme-danger-border-text" value="#5a2a2a" onchange="document.getElementById('theme-danger-border').value = this.value">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Header Color</label>
+                                    <div class="input-row">
+                                        <input type="color" id="theme-header" value="#ffffff" style="padding: 0; height: 40px; width: 60px; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;">
+                                        <input type="text" id="theme-header-text" value="#ffffff" onchange="document.getElementById('theme-header').value = this.value">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Success Color</label>
+                                    <div class="input-row">
+                                        <input type="color" id="theme-success" value="#28a745" style="padding: 0; height: 40px; width: 60px; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;">
+                                        <input type="text" id="theme-success-text" value="#28a745" onchange="document.getElementById('theme-success').value = this.value">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Warning Color</label>
+                                    <div class="input-row">
+                                        <input type="color" id="theme-warning" value="#ffc107" style="padding: 0; height: 40px; width: 60px; border-radius: 6px; border: 1px solid var(--border-color); cursor: pointer;">
+                                        <input type="text" id="theme-warning-text" value="#ffc107" onchange="document.getElementById('theme-warning').value = this.value">
+                                    </div>
+                                </div>
+                            </div>
+                            <p class="hint">Changes are applied immediately. Save to create a new persistent theme.</p>
+                        </div>
+
+                        <!-- Audio Converter -->
                         <div id="script-media-converter" class="script-panel" style="display: none;">
                             <h2>Audio Converter</h2>
                             <p style="color: #aaa; margin-bottom: 20px;">
@@ -924,13 +1109,14 @@
                             </div>
                             <div class="form-group" id="convert-output-group" style="display: none; margin-top: 20px; animation: fadeIn 0.3s;">
                                 <label>Output Format</label>
-                                <select id="convert-format" style="width: 100%; padding: 10px; background: #161616; color: white; border: 1px solid #333; border-radius: 6px;">
+                                <select id="convert-format" style="width: 100%; padding: 10px; background: var(--input-bg); color: var(--text-color); border: 1px solid var(--border-color); border-radius: var(--border-radius);">
                                     <!-- Options populated dynamically -->
                                 </select>
                                 <button class="btn btn-primary" onclick="runMediaConvert()" style="width: 100%; margin-top: 15px;">Convert Now</button>
                             </div>
                         </div>
 
+                        <!-- Collections Manager -->
                         <div id="script-collections-manager" class="script-panel" style="display: none; height: 100%;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                                 <h2 style="margin: 0;">Collections Manager</h2>
@@ -979,17 +1165,17 @@
             </div>
 
             <!-- Profile View -->
-            <div id="view-profile" class="view">
+            <div id="view-profile" class="view" style="flex-direction: column; height: 100%;">
                 <div class="simple-header"><h1>Profile</h1></div>
                 <div class="simple-content">
                     <div style="display: flex; gap: 20px; margin-bottom: 30px;">
-                        <div class="info-box" style="flex: 1; background: #1e1e1e; padding: 20px; border-radius: 8px; text-align: center;">
+                        <div class="info-box" style="flex: 1; background: var(--card-bg); padding: 20px; border-radius: var(--border-radius); text-align: center; border: 1px solid var(--border-color);">
                             <div style="font-size: 36px; color: var(--accent-color);" id="profile-playtime">0h</div>
-                            <div style="color: #888;">Total Playtime</div>
+                            <div style="color: var(--text-dim);">Total Playtime</div>
                         </div>
-                        <div class="info-box" style="flex: 1; background: #1e1e1e; padding: 20px; border-radius: 8px; text-align: center;">
+                        <div class="info-box" style="flex: 1; background: var(--card-bg); padding: 20px; border-radius: var(--border-radius); text-align: center; border: 1px solid var(--border-color);">
                             <div style="font-size: 36px; color: var(--accent-color);" id="profile-count">0</div>
-                            <div style="color: #888;">Games in Library</div>
+                            <div style="color: var(--text-dim);">Games in Library</div>
                         </div>
                     </div>
                     
@@ -1001,12 +1187,12 @@
             </div>
 
             <!-- Settings View -->
-            <div id="view-settings" class="view">
-                <div class="simple-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <div id="view-settings" class="view" style="flex-direction: column; height: 100%;">
+                <div class="simple-header" style="display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
                     <h1>Settings</h1>
                     <button class="btn btn-primary" onclick="saveSettings()" style="font-size: 16px; padding: 10px 25px;">💾 Save All Settings</button>
                 </div>
-                <div class="simple-content settings-wrapper">
+                <div class="simple-content settings-wrapper" style="flex: 1; overflow-y: auto; overflow-x: hidden;">
                     
                     <!-- User Profile -->
                     <div class="settings-card">
@@ -1020,60 +1206,56 @@
                         </div>
                         <div class="form-group">
                             <label data-i18n="settings.language">Language</label>
-                            <div class="input-row">
-                                <select id="languageInput" style="flex: 1; padding: 12px 15px; background-color: #161616; border: 1px solid #333; color: white; border-radius: 6px; font-family: inherit; font-size: 14px;">
-                                    <option value="en">English</option>
-                                    <option value="de">Deutsch (German)</option>
-                                    <option value="fr">Français (French)</option>
-                                    <option value="es">Español (Spanish)</option>
-                                    <option value="it">Italiano (Italian)</option>
-                                    <option value="pt">Português (Portuguese)</option>
-                                    <option value="nl">Nederlands (Dutch)</option>
-                                    <option value="pl">Polski (Polish)</option>
-                                    <option value="ru">Русский (Russian)</option>
-                                    <option value="tr">Türkçe (Turkish)</option>
-                                    <option value="sv">Svenska (Swedish)</option>
-                                    <option value="da">Dansk (Danish)</option>
-                                    <option value="no">Norsk (Norwegian)</option>
-                                    <option value="fi">Suomi (Finnish)</option>
-                                    <option value="cs">Čeština (Czech)</option>
-                                    <option value="hu">Magyar (Hungarian)</option>
-                                    <option value="ro">Română (Romanian)</option>
-                                    <option value="uk">Українська (Ukrainian)</option>
-                                    <option value="el">Ελληνικά (Greek)</option>
-                                    <option value="zh-CN">简体中文 (Chinese Simplified)</option>
-                                    <option value="ja">日本語 (Japanese)</option>
-                                    <option value="ko">한국어 (Korean)</option>
-                                    <option value="ar">العربية (Arabic)</option>
-                                    <option value="hi">हिन्दी (Hindi)</option>
-                                    <option value="pt-br">Português (Brasil)</option>
-                                    <option value="id">Bahasa Indonesia (Indonesian)</option>
-                                    <option value="th">ไทย (Thai)</option>
-                                    <option value="vi">Tiếng Việt (Vietnamese)</option>
-                                </select>
-                            </div>
+                            <select id="languageInput" style="width: 100%; padding: 12px 15px; background-color: var(--input-bg); border: 1px solid var(--border-color); color: var(--text-color); border-radius: var(--border-radius); font-family: inherit; font-size: 14px; cursor: pointer;">
+                                <option value="en">English</option>
+                                <option value="de">Deutsch (German)</option>
+                                <option value="fr">Français (French)</option>
+                                <option value="es">Español (Spanish)</option>
+                                <option value="it">Italiano (Italian)</option>
+                                <option value="pt">Português (Portuguese)</option>
+                                <option value="nl">Nederlands (Dutch)</option>
+                                <option value="pl">Polski (Polish)</option>
+                                <option value="ru">Русский (Russian)</option>
+                                <option value="tr">Türkçe (Turkish)</option>
+                                <option value="sv">Svenska (Swedish)</option>
+                                <option value="da">Dansk (Danish)</option>
+                                <option value="no">Norsk (Norwegian)</option>
+                                <option value="fi">Suomi (Finnish)</option>
+                                <option value="cs">Čeština (Czech)</option>
+                                <option value="hu">Magyar (Hungarian)</option>
+                                <option value="ro">Română (Romanian)</option>
+                                <option value="uk">Українська (Ukrainian)</option>
+                                <option value="el">Ελληνικά (Greek)</option>
+                                <option value="zh-CN">简体中文 (Chinese Simplified)</option>
+                                <option value="ja">日本語 (Japanese)</option>
+                                <option value="ko">한국어 (Korean)</option>
+                                <option value="ar">العربية (Arabic)</option>
+                                <option value="hi">हिन्दी (Hindi)</option>
+                                <option value="pt-br">Português (Brasil)</option>
+                                <option value="id">Bahasa Indonesia (Indonesian)</option>
+                                <option value="th">ไทย (Thai)</option>
+                                <option value="vi">Tiếng Việt (Vietnamese)</option>
+                            </select>
                             <p class="hint" data-i18n="settings.language_hint">Select your preferred language.</p>
                         </div>
                         <div class="form-group">
                             <label data-i18n="settings.theme">Theme</label>
-                            <div class="input-row">
-                                <select id="themeInput" style="flex: 1; padding: 12px 15px; background-color: var(--input-bg); border: 1px solid var(--border-color); color: var(--text-color); border-radius: var(--border-radius); font-family: inherit; font-size: 14px;">
-                                    <option value="dark">Dark (Default)</option>
-                                    <option value="light">Light</option>
-                                    <option value="oled">OLED (True Black)</option>
-                                    <option value="cyberpunk">Cyberpunk</option>
-                                    <option value="neon_city">Neon City</option>
-                                    <option value="dracula">Dracula</option>
-                                    <option value="midnight">Midnight</option>
-                                    <option value="forest">Forest</option>
-                                    <option value="ocean">Ocean</option>
-                                    <option value="sunset">Sunset</option>
-                                    <option value="high_contrast">High Contrast</option>
-                                    <option value="retro">Retro</option>
-                                    <option value="coffee">Coffee</option>
-                                    <option value="nord">Nord</option>
-                                </select>
-                            </div>
+                            <select id="themeInput" style="width: 100%; padding: 12px 15px; background-color: var(--input-bg); border: 1px solid var(--border-color); color: var(--text-color); border-radius: var(--border-radius); font-family: inherit; font-size: 14px; cursor: pointer;">
+                                <option value="dark">Dark (Default)</option>
+                                <option value="light">Light</option>
+                                <option value="oled">OLED (True Black)</option>
+                                <option value="cyberpunk">Cyberpunk</option>
+                                <option value="neon_city">Neon City</option>
+                                <option value="dracula">Dracula</option>
+                                <option value="midnight">Midnight</option>
+                                <option value="forest">Forest</option>
+                                <option value="ocean">Ocean</option>
+                                <option value="sunset">Sunset</option>
+                                <option value="high_contrast">High Contrast</option>
+                                <option value="retro">Retro</option>
+                                <option value="coffee">Coffee</option>
+                                <option value="nord">Nord</option>
+                            </select>
                             <p class="hint" data-i18n="settings.theme_hint">Select your preferred visual style.</p>
                         </div>
                     </div>
@@ -1287,7 +1469,7 @@
 
                     <!-- System -->
                     <div class="settings-card" style="border-color: #5a2a2a;">
-                        <h2 style="color: #ff6b6b;">⚠️ System</h2>
+                        <h2 style="color: var(--danger-color);">⚠️ System</h2>
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 15px;">
                             <span style="color: #aaa;">Clear all downloaded images and metadata.</span>
                             <button class="btn btn-secondary" onclick="cleanCache()">Clean Metadata Cache</button>
@@ -1304,11 +1486,11 @@
                             <span style="color: #aaa;">Remove known orphaned save data folders.</span>
                             <button class="btn btn-secondary" onclick="openCleanSavesDialog()">Clean Unused Save Data</button>
                         </div>
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 15px;">
+                        <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 15px;">
                             <span style="color: #aaa;">Exclude all game folders from Windows Defender to prevent missing files.</span>
-                            <div>
+                            <div style="display: flex; gap: 10px;">
                                 <button class="btn btn-secondary" onclick="fixMissingFiles()">Fix Missing Game Files</button>
-                                <button class="btn btn-secondary" id="btn-revert-defender" onclick="revertDefenderFix()" style="display:none; margin-left: 10px; color: #ff6b6b; border-color: #5a2a2a;">Revert Exclusions</button>
+                                <button class="btn btn-secondary" id="btn-revert-defender" onclick="revertDefenderFix()" style="display:none; color: var(--danger-color); border-color: var(--danger-border);">Revert Exclusions</button>
                             </div>
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -1448,7 +1630,7 @@
                         <label>Save Data Path</label>
                         <div style="display: flex; gap: 10px;">
                             <input type="text" id="gs-save-path" style="flex: 1; padding: 10px; background: #161616; border: 1px solid #333; color: white; border-radius: 6px; box-sizing: border-box;">
-                            <select id="gs-save-candidates" style="display:none; max-width: 150px; background: #252526; color: white; border: 1px solid #333; border-radius: 6px;" onchange="document.getElementById('gs-save-path').value = this.value">
+                            <select id="gs-save-candidates" style="display:none; max-width: 150px; background: var(--input-bg); color: var(--text-color); border: 1px solid var(--border-color); border-radius: var(--border-radius);" onchange="document.getElementById('gs-save-path').value = this.value">
                                 <option value="">Detected...</option>
                             </select>
                         </div>
@@ -1574,8 +1756,8 @@
         .modal-btn-primary:hover { background: #0063a8; }
         .modal-btn-secondary { background: #333; color: #eee; }
         .modal-btn-secondary:hover { background: #444; }
-        .modal-btn-danger { background: #2c1e1e; color: #ff6b6b; border: 1px solid #5a2a2a; }
-        .modal-btn-danger:hover { background: #3e1e1e; border-color: #ff6b6b; }
+        .modal-btn-danger { background: transparent; color: var(--danger-color); border: 1px solid var(--danger-border); }
+        .modal-btn-danger:hover { background: var(--hover-color); border-color: var(--danger-color); }
 
         /* ... existing styles ... */
         
