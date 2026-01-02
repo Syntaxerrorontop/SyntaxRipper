@@ -5,7 +5,7 @@ import subprocess
 import psutil
 import threading
 
-from .utility_functions import _get_version_steamrip, save_json, load_json
+from .utility_functions import save_json, load_json
 from .utility_vars import CONFIG_FOLDER
 from .utility_classes import UserConfig
 from .SaveDetector import SavePathDetector

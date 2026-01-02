@@ -272,61 +272,58 @@ class DDLExtractor:
 
 class SiteScraper:
     @staticmethod
-    def steamrip(url: str, scraper: UniversalScraper) -> dict:
+    def source_1(url: str, scraper: UniversalScraper) -> dict:
         try:
             page_content = scraper.get_html(url)
             soup = BeautifulSoup(page_content, 'html.parser')
-            h1_text = soup.h1.string.split("Free Download")
             
-            name = h1_text[0].strip()
-            version = h1_text[1].strip().removeprefix("(").removesuffix(")")
+            # Generic extraction - assumes H1 contains Name and Version in some format
+            h1 = soup.h1.get_text() if soup.h1 else "Unknown"
             
-            logging.info("Downloader:steamrip Extracting downloadable links")
+            if "Download" in h1:
+                parts = h1.split("Download")
+                name = parts[0].strip()
+                version = parts[1].strip().strip("() ") if len(parts) > 1 else "N/A"
+            else:
+                name = h1
+                version = "N/A"
+            
+            logging.info("Source 1: Extracting downloadable links")
             
             found_links = {}
             
             for key, data_ in _download_data["provider_support"].items():
-
                 regex_finder = re.findall(data_["pattern"], page_content)
-                
                 if regex_finder and len(regex_finder) == 1:
                     found_links[key] = data_["formaturl"].format(detected_link = regex_finder[0])
                 else:
                     found_links[key] = None
             
-            logging.info(f"Downloader:steamrip Detected download links: {found_links}")
-            
-            logging.info(f"Downloader:steamrip Generating Filename")
-            
             return found_links, name, version
                 
         except Exception as e:
-            logging.error(f"Downloader:steamrip Error fetching the URL: {e}")
+            logging.error(f"Source 1 Fetch Error: {e}")
             return {}, "Unknown", "N/A"
     
     @staticmethod
-    def filmpalast(url):
+    def source_2(url):
         r = requests.get(url)
         r.raise_for_status()
         page_content = r.text
         
         soup = BeautifulSoup(page_content, 'html.parser')
-        soup.find()
         
         found_links = {}
             
         for key, data_ in _download_data["provider_support"].items():
-            
             if key == "voe":
                 link_element = soup.find("a", href=re.compile(r'voe\.sx'))
                 if link_element:
                     found_links[key] = link_element['href']
                 else:
                     found_links[key] = None
-                    
             else:
                 regex_finder = re.findall(data_["pattern"], page_content)
-                
                 if regex_finder and len(regex_finder) == 1:
                     found_links[key] = data_["formaturl"].format(detected_link = regex_finder[0])
                 else:
@@ -336,32 +333,24 @@ class SiteScraper:
 
 _download_data = {
     "site_support": {
-        "steamrip": {
+        "source_1": {
             "provider": [
-                "gofile",
-                "filecrypt",
-                "buzzheavier",
-                "fichier",
-                "datanode",
-                "megadb",
-                "vikingfile"
+                "gofile", "filecrypt", "buzzheavier", "fichier", "datanode", "megadb", "vikingfile"
             ],
             "file_ending": "rar",
             "has_compression": True,
             "compression_type": "rar",
-            "extractor": SiteScraper.steamrip,
+            "extractor": SiteScraper.source_1,
             "need_scraper": True
         },
-        "filmpalast": {
+        "source_2": {
             "provider": [
-                "voe",
-                "veev",
-                "strmup",
+                "voe", "veev", "strmup",
             ],
             "file_ending": "mp4",
             "has_compression": False,
             "compression_type": "",
-            "extractor": SiteScraper.filmpalast,
+            "extractor": SiteScraper.source_2,
             "need_scraper": False
         }
     },
@@ -504,12 +493,38 @@ class DownloadUtils:
         
         key = None
         
-        for site in _download_data["site_support"].keys():
-            if site in url:
-                is_site = True
-                key = site
-                break
-        
+        # Load sources from config
+        try:
+            # We need to find the config folder path. 
+            # In LIBB, we might need a better way to find it if it's not absolute.
+            # But based on utility_vars, we know where it is in AppData.
+            # For simplicity, I'll try to find it relative to PROJECT_ROOT if I had it.
+            # Let's assume we can use a helper or just check the sources we know.
+            
+            # Temporary: Check source URLs from a loaded config if we had a global way.
+            # For now, I'll use a dynamic check based on the sources in site_support 
+            # and try to match with the config.
+            
+            # Since I can't easily import from src.utility here without circular imports maybe,
+            # I'll use a generic approach.
+            
+            # Let's try to find project root to get the config
+            from pathlib import Path
+            appdata = os.getenv('APPDATA')
+            config_file = Path(appdata) / "SyntaxRipper" / "Config" / "config.json"
+            
+            if config_file.exists():
+                with open(config_file, "r") as f:
+                    config = json.load(f)
+                    for sid, sdata in config.get("sources", {}).items():
+                        surl = sdata.get("source_url", "").lower()
+                        if surl and surl in url:
+                            is_site = True
+                            key = sid
+                            break
+        except Exception as e:
+            logging.error(f"Error validating via config: {e}")
+
         if key != None:
             return ValidatedUrl(key=key, is_site=is_site, is_provider=is_provider)
         

@@ -23,7 +23,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 # Local imports
 from .utility.utility_functions import (
     save_json, load_json, hash_url, get_name_from_url, 
-    _get_version_steamrip, _game_naming
+    get_version_from_source, _game_naming
 )
 from .utility.utility_classes import Payload, Header, UserConfig, File
 from .utility.utility_vars import CONFIG_FOLDER, CACHE_FOLDER, APPDATA_CACHE_PATH
@@ -362,7 +362,7 @@ class DirectLinkDownloader:
 
 class Downloader:
     @staticmethod
-    def steamrip(url, data, scraper):
+    def source_type_1(url, data, scraper):
         try:
             page_content = scraper.get_html(url)
             found_links = {}
@@ -375,18 +375,16 @@ class Downloader:
                     found_links[key] = None
             
             try:
-                # url[:-1].split("/")[-1].split("free-download")[0][:-1].replace("-", "_")
-                # Use the global utility function for consistency
                 name = get_name_from_url(url)
             except:
                 name = ''.join(random.choices(string.ascii_letters + string.digits, k=20))
             return found_links, name
         except Exception as e:
-            logging.error(f"SteamRIP Fetch Error: {e}")
+            logging.error(f"Source 1 Fetch Error: {e}")
             return {}, "Unknown"
 
     @staticmethod
-    def filmpalast(url, data, scraper):
+    def source_type_2(url, data, scraper):
         try:
             page_content = scraper.get_html(url)
             soup = BeautifulSoup(page_content, 'html.parser')
@@ -402,9 +400,9 @@ class Downloader:
                         found_links[key] = data_["formaturl"].format(detected_link = regex_finder[0])
                     else:
                         found_links[key] = None
-            return found_links, "Filmpalast_Video"
+            return found_links, "Generic_Source_2_Video"
         except Exception as e:
-            logging.error(f"Filmpalast Fetch Error: {e}")
+            logging.error(f"Source 2 Fetch Error: {e}")
             return {}, "Unknown"
 
 # Provider Data Configuration
@@ -731,18 +729,17 @@ class AsyncDownloadManager:
         self.userconfig = UserConfig(CONFIG_FOLDER, "userconfig.json")
         self.download_speed_limit = self.userconfig.DOWNLOAD_SPEED
         
-        # SteamRIP Version Mismatch Check
-        if "steamrip.com" in url.lower():
-            try:
-                # Use internal_get_html or similar to avoid queue recursion if possible,
-                # but scraper.get_html is fine if it handles its own internal queue.
-                scraped_version = _get_version_steamrip(url, self.scraper)
+        # Version Mismatch Check
+        try:
+            # We check if this URL belongs to any configured source that supports versioning
+            scraped_version = get_version_from_source(url, self.scraper)
+            if scraped_version and scraped_version != "N/A" and "Error" not in scraped_version:
                 config_path = os.path.join(CONFIG_FOLDER, "games.json")
                 games_config = load_json(config_path)
                 
                 if item_hash in games_config:
                     stored_version = games_config[item_hash].get("version")
-                    if stored_version and stored_version != scraped_version and "Error" not in scraped_version:
+                    if stored_version and stored_version != scraped_version and "Pending" not in stored_version:
                         logging.info(f"Version mismatch for {alias} ({stored_version} -> {scraped_version}). Wiping cache...")
                         
                         # Wipe Cache
@@ -757,8 +754,8 @@ class AsyncDownloadManager:
                         # Update stored version
                         games_config[item_hash]["version"] = scraped_version
                         save_json(config_path, games_config)
-            except Exception as e:
-                logging.error(f"Version check failed: {e}")
+        except Exception as e:
+            logging.error(f"Version check failed: {e}")
 
         self.should_stop = False
         self.is_paused = False
@@ -1247,7 +1244,7 @@ class AsyncDownloadManager:
                 # Library Update Logic
                 self._emit("status", "Updating library...")
                 
-                # Find the actual game folder inside the unpack folder (SteamRIP often nests them)
+                # Find the actual game folder inside the unpack folder
                 rename_path = None
                 for item in os.listdir(unpack_folder):
                     if item == "_CommonRedist": continue

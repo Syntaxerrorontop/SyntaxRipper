@@ -274,6 +274,65 @@ function connectWebSocket() {
 }
 
 function handleWsMessage(msg) {
+    // Setup Wizard Validation Interceptor
+    const setupStatusText = document.getElementById('setup-status-text');
+    const setupStatusIcon = document.getElementById('setup-status-icon');
+    
+    if (msg.type === 'status' && msg.data.includes("VALIDATION STEP")) {
+        if (setupStatusText) {
+            setupStatusText.textContent = msg.data;
+            setupStatusText.style.color = 'var(--accent-color)';
+        }
+        if (setupStatusIcon) {
+            setupStatusIcon.className = 'status-spinner';
+            setupStatusIcon.innerHTML = '';
+        }
+    } else if (msg.type === 'complete' && msg.data.message && msg.data.message.includes("Validation Complete")) {
+        if (setupStatusText) {
+            setupStatusText.textContent = msg.data.message;
+            setupStatusText.style.color = '#28a745';
+        }
+        if (setupStatusIcon) {
+            setupStatusIcon.className = 'status-check';
+            setupStatusIcon.innerHTML = '<i class="fas fa-check-circle"></i>';
+        }
+        
+        const btn = document.getElementById('setup-activate-btn');
+        if (btn) {
+            btn.classList.remove('btn-loading');
+            btn.textContent = "FRAMEWORK ACTIVATED";
+            btn.style.backgroundColor = "#28a745";
+        }
+
+        // Auto-close modal after success
+        setTimeout(() => {
+            const overlay = document.getElementById('setup-modal-overlay');
+            if (overlay) {
+                overlay.style.transition = 'opacity 1s ease';
+                overlay.style.opacity = '0';
+                setTimeout(() => {
+                    overlay.style.display = 'none';
+                    showToast("System Unlocked!", "success");
+                    refreshLibrary();
+                }, 1000);
+            }
+        }, 2500);
+    } else if (msg.type === 'error' && msg.data.includes("Failed")) {
+        if (setupStatusText) {
+            setupStatusText.textContent = msg.data;
+            setupStatusText.style.color = '#ff6b6b';
+        }
+        if (setupStatusIcon) {
+            setupStatusIcon.className = 'status-error';
+            setupStatusIcon.innerHTML = '<i class="fas fa-times-circle"></i>';
+        }
+        const btn = document.getElementById('setup-activate-btn');
+        if (btn) {
+            btn.classList.remove('btn-loading');
+            btn.textContent = "RETRY ACTIVATION";
+        }
+    }
+
     if (msg.type === 'status') {
         const statusEl = document.getElementById('dl-status-text');
         if (statusEl) statusEl.textContent = msg.data;
@@ -759,39 +818,35 @@ async function deleteSelectedSaves() {
 }
 
 async function saveSettings() {
-    try {
-        const userIn = document.getElementById('usernameInput'); if (userIn) currentSettings.username = userIn.value;
-        const langIn = document.getElementById('languageInput'); if (langIn) currentSettings.language = langIn.value;
-        const themeIn = document.getElementById('themeInput'); if (themeIn) currentSettings.theme = themeIn.value;
-        const rawgIn = document.getElementById('rawgKeyInput'); if (rawgIn) currentSettings.rawg_api_key = rawgIn.value.trim();
-        const debridIn = document.getElementById('debridKeyInput'); if (debridIn) currentSettings.real_debrid_key = debridIn.value.trim();
-        const speedIn = document.getElementById('speedLimitInput'); if (speedIn) currentSettings.speed = parseInt(speedIn.value) || 0;
-        const speedEnabledIn = document.getElementById('speedLimitEnabledInput'); if (speedEnabledIn) currentSettings.speed_enabled = speedEnabledIn.checked;
-        const autoUpdateIn = document.getElementById('autoUpdateInput'); if (autoUpdateIn) currentSettings.auto_update_games = autoUpdateIn.checked;
-        const resumeIn = document.getElementById('resumeStartupInput'); if (resumeIn) currentSettings.resume_on_startup = resumeIn.checked;
-        const dryIn = document.getElementById('dryLaunchInput'); if (dryIn) currentSettings.dry_launch = dryIn.checked;
-        const verboseIn = document.getElementById('verboseLoggingInput'); if (verboseIn) currentSettings.verbose_logging = verboseIn.checked;
-        const controllerIn = document.getElementById('controllerSupportInput'); if (controllerIn) currentSettings.controller_support = controllerIn.checked;
-        const showHiddenIn = document.getElementById('showHiddenInput'); if (showHiddenIn) currentSettings.show_hidden_games = showHiddenIn.checked;
-        const randomUninstalledIn = document.getElementById('randomUninstalledInput'); if (randomUninstalledIn) currentSettings.random_include_uninstalled = randomUninstalledIn.checked;
-        const rpcIn = document.getElementById('discordRpcInput'); if (rpcIn) currentSettings.discord_rpc_enabled = rpcIn.checked;
-        const gameModeIn = document.getElementById('gamingModeInput'); if (gameModeIn) currentSettings.gaming_mode_enabled = gameModeIn.checked;
-        // Mappings are updated in-place in currentSettings during remap, just need to send them
-        
-        // Media Output Path is updated in-place by changeMediaOutputPath, but just in case:
-        const dcacheIn = document.getElementById('downloadCachePathInput'); if (dcacheIn) currentSettings.download_cache_path = dcacheIn.value;
-        const gpathIn = document.getElementById('installedGamesPathInput'); if (gpathIn) currentSettings.installed_games_path = gpathIn.value;
-        const mpathIn = document.getElementById('mediaOutputPathInput'); if (mpathIn) currentSettings.media_output_path = mpathIn.value;
+    // ... existing saveSettings code ...
+}
 
-        await fetch(`${API_URL}/api/settings`, {
+async function saveSourceUrls() {
+    const s1 = document.getElementById('source-1-url-input').value.trim();
+    const s2 = document.getElementById('source-2-url-input').value.trim();
+    
+    if (!s1 && !s2) {
+        showToast("Please enter at least one URL", "error");
+        return;
+    }
+    
+    try {
+        const res = await fetch(`${API_URL}/api/settings/sources`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(currentSettings)
+            body: JSON.stringify({ source_1: s1, source_2: s2 })
         });
-        await loadSettings();
-        refreshLibrary();
-        await showAlert("Success", "Settings saved!");
-    } catch(e) { await showAlert("Error", "Save failed: " + e); }
+        const data = await res.json();
+        if (data.status === 'ok') {
+            showToast(data.message, "success");
+            // Reload settings to refresh UI if needed
+            loadSettings();
+        } else {
+            showToast(data.message, "error");
+        }
+    } catch(e) {
+        showToast("Failed to save sources: " + e.message, "error");
+    }
 }
 
 // --- Library ---
@@ -2804,3 +2859,88 @@ async function importTheme() {
     };
     input.click();
 }
+
+// --- Initialization ---
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize source configuration button if it exists
+    const saveSourcesBtn = document.getElementById('save-sources-btn');
+    if (saveSourcesBtn) {
+        saveSourcesBtn.addEventListener('click', saveSourceUrls);
+    }
+
+    // Start setup check after a short delay to ensure server is up
+    setTimeout(checkInitialSetup, 1000);
+});
+
+// Update renderSettings to show source URLs
+const originalRenderSettings = renderSettings;
+renderSettings = function() {
+    if (typeof originalRenderSettings === 'function') originalRenderSettings();
+    fetch(`${API_URL}/api/settings/sources/list`).then(r => r.json()).then(sources => {
+        const s1 = document.getElementById('source-1-url-input');
+        const s2 = document.getElementById('source-2-url-input');
+        if (s1 && sources.source_1) s1.value = sources.source_1;
+        if (s2 && sources.source_2) s2.value = sources.source_2;
+    }).catch(() => {});
+};
+
+// Setup Wizard Logic
+async function checkInitialSetup() {
+    try {
+        const res = await fetch(`${API_URL}/api/settings/sources/list`);
+        const data = await res.json();
+        const overlay = document.getElementById('setup-modal-overlay');
+        if (overlay && !data.configured) {
+            overlay.style.display = 'flex';
+        }
+    } catch(e) {
+        console.error('Failed to check setup state', e);
+    }
+}
+
+async function runInitialSetup() {
+    const s1 = document.getElementById('setup-source-1').value.trim();
+    const s2 = document.getElementById('setup-source-2').value.trim();
+    
+    if (!s1 && !s2) {
+        showToast('Please enter at least one source URL', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('setup-activate-btn');
+    const statusContainer = document.getElementById('setup-status-container');
+    const statusIcon = document.getElementById('setup-status-icon');
+    const statusText = document.getElementById('setup-status-text');
+
+    if (btn) btn.classList.add('btn-loading');
+    if (statusContainer) statusContainer.style.display = 'flex';
+    if (statusIcon) {
+        statusIcon.className = 'status-spinner';
+        statusIcon.innerHTML = '';
+    }
+    if (statusText) {
+        statusText.textContent = 'Initializing activation...';
+        statusText.style.color = '#aaa';
+    }
+    
+    try {
+        const res = await fetch(`${API_URL}/api/settings/sources`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ source_1: s1, source_2: s2 })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            // We wait for the WebSocket messages now for the final check/close
+            if (statusText) statusText.textContent = 'Contacting sources...';
+        } else {
+            showToast(data.message, 'error');
+            if (btn) btn.classList.remove('btn-loading');
+        }
+    } catch(e) {
+        showToast('Setup failed: ' + e.message, 'error');
+        if (btn) btn.classList.remove('btn-loading');
+    }
+}
+
+

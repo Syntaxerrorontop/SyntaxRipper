@@ -17,6 +17,8 @@ CONFIG_FOLDER = os.path.join(APPDATA_CACHE_PATH, "Config")
 if not os.path.exists(CONFIG_FOLDER):
     os.makedirs(CONFIG_FOLDER)
 
+CONFIG_FILE = os.path.join(CONFIG_FOLDER, "config.json")
+
 CACHE_FOLDER = os.path.join(APPDATA_CACHE_PATH, "Cached")
 if not os.path.exists(CACHE_FOLDER):
     os.makedirs(CACHE_FOLDER)

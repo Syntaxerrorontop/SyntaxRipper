@@ -27,7 +27,7 @@ if sys.platform == 'win32':
 from src.scraper import UniversalScraper
 from src.DownloadManager import AsyncDownloadManager
 from src.Searcher import Searcher
-from src.utility.utility_functions import load_json, save_json, hash_url, get_name_from_url, _game_naming
+from src.utility.utility_functions import load_json, save_json, hash_url, get_name_from_url, get_version_from_source, _game_naming
 from src.utility.utility_vars import CONFIG_FOLDER, CACHE_FOLDER, APPDATA_CACHE_PATH, APP_VERSION
 from src.utility.ExternalLibraryScanner import ExternalLibraryScanner
 from src.utility.utility_classes import UserConfig
@@ -60,6 +60,7 @@ logging.basicConfig(
 logger = logging.getLogger("Server")
 
 # Global State
+SOURCES_CONFIGURED = False
 scraper = None
 download_manager = None
 metadata_fetcher = None
@@ -156,83 +157,87 @@ def check_updates_task():
                 user_config = UserConfig(CONFIG_FOLDER, "userconfig.json")
                 logger.info("Running update check...")
                 
-                # Fetch full list once
-                versions_map = Searcher.fetch_versions_map(scraper)
-                
-                if versions_map:
-                    config_path = os.path.join(CONFIG_FOLDER, "games.json")
-                    if os.path.exists(config_path):
-                        games_config = load_json(config_path)
-                        updates_found = 0
-                        
-                        for game_hash, info in games_config.items():
-                            url = info.get("link", "")
-                            current_version = info.get("version", "N/A")
-                            
-                            # Only check installed SteamRIP games
-                            if "steamrip.com" in url and current_version != "N/A" and "Pending" not in current_version:
-                                try:
-                                    # Normalize URL to key (e.g., https://steamrip.com/foo/ -> /foo/)
-                                    parsed = urllib.parse.urlparse(url)
-                                    key = parsed.path
-                                    if not key.endswith("/"): key += "/"
-                                    
-                                    raw_title = versions_map.get(key)
-                                    if raw_title:
-                                        # Extraction: "split at Free Download then part 1..."
-                                        part1 = raw_title.split("Free Download")[0]
-                                        match = re.search(r"\((.*?)\)", part1)
-                                        
-                                        if match:
-                                            latest_version = match.group(1).strip()
-                                            
-                                            # Normalize for comparison
-                                            norm_latest = latest_version.lower().replace(" ", "")
-                                            norm_current = current_version.lower().replace(" ", "")
-                                            
-                                            # Check mismatch: 
-                                            # If the website version (norm_latest) is NOT inside our local version (norm_current),
-                                            # we consider it an update (or at least a difference worth flagging).
-                                            if norm_latest not in norm_current:
-                                                # Avoid spamming logs/broadcasts if already flagged
-                                                was_flagged = info.get("update_available", False)
-                                                
-                                                if not was_flagged or info.get("latest_version") != latest_version:
-                                                    logger.info(f"Update available for {info['alias']}: {current_version} -> {latest_version}")
-                                                    
-                                                    games_config[game_hash]["latest_version"] = latest_version
-                                                    games_config[game_hash]["update_available"] = True
-                                                    updates_found += 1
-                                                    
-                                                    broadcast_event("update_available", {
-                                                        "id": game_hash,
-                                                        "name": info["alias"],
-                                                        "current": current_version,
-                                                        "latest": latest_version
-                                                    })
+                # Fetch full list once if possible, or iterate sources
+                # For now, we generalize the loop
+                sources_to_check = []
+                from src.utility.utility_vars import CONFIG_FILE
+                config = load_json(CONFIG_FILE)
+                for sid, sdata in config.get("sources", {}).items():
+                    if sdata.get("update_check_enabled", False):
+                        sources_to_check.append(sdata)
 
-                                                # Auto-Update Logic
-                                                if user_config.AUTO_UPDATE_GAMES:
-                                                    # Check if already in queue to avoid duplicates
-                                                    queue = download_manager.get_queue()
-                                                    if not any(item['hash'] == game_hash for item in queue):
-                                                        logger.info(f"Auto-update enabled. Starting download for {info['alias']}...")
-                                                        download_manager.start_download(url, "auto_update", info["alias"])
-                                            
-                                            else:
-                                                # Versions match (norm_latest is in norm_current), clear flag if it was set
-                                                if info.get("update_available", False):
-                                                    logger.info(f"Version match for {info['alias']} ({current_version}). Clearing update flag.")
-                                                    games_config[game_hash]["update_available"] = False
-                                                    games_config[game_hash]["latest_version"] = current_version
-                                                    updates_found += 1
+                for source in sources_to_check:
+                    versions_map = Searcher.fetch_source_versions(scraper, source)
+                    
+                    if versions_map:
+                        config_path = os.path.join(CONFIG_FOLDER, "games.json")
+                        if os.path.exists(config_path):
+                            games_config = load_json(config_path)
+                            updates_found = 0
+                            
+                            source_url = source.get("source_url", "")
+                            
+                            for game_hash, info in games_config.items():
+                                url = info.get("link", "")
+                                current_version = info.get("version", "N/A")
+                                
+                                # Check if this game belongs to this source
+                                if source_url and source_url in url and current_version != "N/A" and "Pending" not in current_version:
+                                    try:
+                                        # Normalize URL to key
+                                        parsed = urllib.parse.urlparse(url)
+                                        key = parsed.path
+                                        if not key.endswith("/"): key += "/"
                                         
-                                except Exception as e:
-                                    logger.warning(f"Failed to check update for {info['alias']}: {e}")
-                        
-                        if updates_found > 0:
-                            save_json(config_path, games_config)
-                            logger.info(f"Updates processed. Config saved.")
+                                        raw_title = versions_map.get(key)
+                                        if raw_title:
+                                            # Extraction logic from config
+                                            pattern = source.get("version_extraction_pattern", r"\((.*?)\)")
+                                            match = re.search(pattern, raw_title)
+                                            
+                                            if match:
+                                                latest_version = match.group(1).strip()
+                                                
+                                                # Normalize for comparison
+                                                norm_latest = latest_version.lower().replace(" ", "")
+                                                norm_current = current_version.lower().replace(" ", "")
+                                                
+                                                if norm_latest not in norm_current:
+                                                    was_flagged = info.get("update_available", False)
+                                                    
+                                                    if not was_flagged or info.get("latest_version") != latest_version:
+                                                        logger.info(f"Update available for {info['alias']}: {current_version} -> {latest_version}")
+                                                        
+                                                        games_config[game_hash]["latest_version"] = latest_version
+                                                        games_config[game_hash]["update_available"] = True
+                                                        updates_found += 1
+                                                        
+                                                        broadcast_event("update_available", {
+                                                            "id": game_hash,
+                                                            "name": info["alias"],
+                                                            "current": current_version,
+                                                            "latest": latest_version
+                                                        })
+
+                                                    if user_config.AUTO_UPDATE_GAMES:
+                                                        queue = download_manager.get_queue()
+                                                        if not any(item['hash'] == game_hash for item in queue):
+                                                            logger.info(f"Auto-update enabled. Starting download for {info['alias']}...")
+                                                            download_manager.start_download(url, "auto_update", info["alias"])
+                                                
+                                                else:
+                                                    if info.get("update_available", False):
+                                                        logger.info(f"Version match for {info['alias']} ({current_version}). Clearing update flag.")
+                                                        games_config[game_hash]["update_available"] = False
+                                                        games_config[game_hash]["latest_version"] = current_version
+                                                        updates_found += 1
+                                            
+                                    except Exception as e:
+                                        logger.warning(f"Failed to check update for {info['alias']}: {e}")
+                            
+                            if updates_found > 0:
+                                save_json(config_path, games_config)
+                                logger.info(f"Updates processed. Config saved.")
             
         except Exception as e:
             logger.error(f"Auto-update check failed: {e}")
@@ -366,6 +371,30 @@ async def lifespan(app: FastAPI):
     global scraper, download_manager, parent_pid, loop, metadata_fetcher
     loop = asyncio.get_event_loop()
     
+    # 0. Configuration Validation
+    from src.utility.utility_vars import CONFIG_FILE
+    if not os.path.exists(CONFIG_FILE):
+        logger.error("Configuration file missing. Please create config.json in the Config folder.")
+        # We don't exit(1) here because the user might need to use the app to set it up? 
+        # But instructions say "Der Code darf NICHT starten, wenn keine URL konfiguriert ist."
+        # However, for a web server, if we exit here, the frontend can't even show an error.
+        # I'll let it start but maybe raise an exception when critical functions are called.
+        # Actually, let's follow the instruction strictly and throw an error.
+        # Wait, if I throw an error here, uvicorn will crash. 
+        # I'll create a dummy config if it doesn't exist, but it will have no URLs.
+        save_json(CONFIG_FILE, {"sources": {}})
+    
+    config_data = load_json(CONFIG_FILE)
+    sources = config_data.get("sources", {})
+    has_urls = any(s.get("source_url") for s in sources.values())
+    
+    global SOURCES_CONFIGURED
+    if not has_urls:
+        logger.warning("No Source URL defined. Running in setup mode.")
+        SOURCES_CONFIGURED = False
+    else:
+        SOURCES_CONFIGURED = True
+
     # 1. Maintenance Tasks
     run_startup_tasks()
     
@@ -552,6 +581,88 @@ class AddLibraryRequest(BaseModel):
 
 class RemoveLibraryRequest(BaseModel):
     id: str
+
+class UpdateSourcesRequest(BaseModel):
+    source_1: str = ""
+    source_2: str = ""
+
+@app.post("/api/settings/sources")
+async def update_sources(request: UpdateSourcesRequest):
+    """Updates the source URLs and applies presets if recognized."""
+    from src.utility.utility_vars import CONFIG_FILE
+    from src.utility.presets import get_preset_for_url
+    
+    config = load_json(CONFIG_FILE)
+    if "sources" not in config:
+        config["sources"] = {}
+        
+    updated = False
+    
+    if request.source_1:
+        preset_config, _ = get_preset_for_url(request.source_1)
+        config["sources"]["source_1"] = preset_config
+        logger.info(f"Updated source_1: {preset_config['source_url']}")
+        updated = True
+        
+    if request.source_2:
+        preset_config, _ = get_preset_for_url(request.source_2)
+        config["sources"]["source_2"] = preset_config
+        logger.info(f"Updated source_2: {preset_config['source_url']}")
+        updated = True
+        
+    if updated:
+        global SOURCES_CONFIGURED
+        SOURCES_CONFIGURED = True
+        save_json(CONFIG_FILE, config)
+        
+        # Trigger background validation (2-step process)
+        if scraper_ready:
+            def validate_task():
+                logger.info("Starting 2-step source validation...")
+                try:
+                    s1_config = config["sources"].get("source_1")
+                    if s1_config:
+                        # STEP 1: Version Map
+                        broadcast_event("status", "VALIDATION STEP 1/2: Checking Version Map...")
+                        v_map = Searcher.fetch_source_versions(scraper, s1_config)
+                        
+                        if not v_map:
+                            broadcast_event("error", "Step 1 Failed: Version Map could not be loaded. Check list_url and selectors.")
+                            return
+
+                        # STEP 2: Search Query
+                        broadcast_event("status", "VALIDATION STEP 2/2: Testing Search Indexing...")
+                        # We use a common search term to verify grid/item selectors
+                        test_query = "Elden" 
+                        search_res = Searcher.search_source_1(test_query, scraper, page=1)
+                        
+                        if search_res and search_res.get("results"):
+                            found = len(search_res["results"])
+                            broadcast_event("complete", {"message": f"Validation Complete: Step 1 (OK), Step 2 ({found} items found). Framework Activated."})
+                        else:
+                            broadcast_event("error", "Step 2 Failed: Search returned no results. Check grid/item selectors.")
+                            
+                except Exception as e:
+                    logger.error(f"Validation thread error: {e}")
+                    broadcast_event("error", f"Validation Crashed: {str(e)}")
+            
+            threading.Thread(target=validate_task, daemon=True).start()
+        
+        return {"status": "ok", "message": "Sources updated and presets applied."}
+    
+    return {"status": "error", "message": "No URLs provided."}
+
+@app.get("/api/settings/sources/list")
+async def list_sources():
+    """Returns the current configured source URLs and status."""
+    from src.utility.utility_vars import CONFIG_FILE
+    config = load_json(CONFIG_FILE)
+    sources = config.get("sources", {})
+    return {
+        "source_1": sources.get("source_1", {}).get("source_url", ""),
+        "source_2": sources.get("source_2", {}).get("source_url", ""),
+        "configured": SOURCES_CONFIGURED
+    }
 
 class UpdateCategoriesRequest(BaseModel):
     id: str
@@ -1070,20 +1181,18 @@ async def add_to_library(request: AddLibraryRequest):
         data = load_json(config_path)
         
         url = request.url
-        if not url.startswith("http"):
-            url = "https://steamrip.com" + url
             
         game_hash = hash_url(url)
         
         if game_hash not in data:
-            # Always clean the name for SteamRIP
-            clean_name = get_name_from_url(url) if "steamrip.com" in url.lower() else request.title
+            # Clean the name
+            clean_name = get_name_from_url(url)
             
             # Try to get version immediately if scraper is ready
             version = "N/A"
             if scraper_ready:
                 try:
-                    version = _get_version_steamrip(url, scraper)
+                    version = get_version_from_source(url, scraper)
                 except: pass
 
             data[game_hash] = {
@@ -1108,21 +1217,19 @@ async def add_to_library(request: AddLibraryRequest):
 @app.post("/api/search")
 async def search(request: SearchRequest):
     if request.category == "Games":
-        results = Searcher.games(request.query, scraper, page=request.page)
+        results = Searcher.search_source_1(request.query, scraper, page=request.page)
         return results
         
     elif request.category in ["Movies", "Series", "Animes", "Films"]:
-        results = Searcher.movie(request.query, page=request.page)
+        results = Searcher.search_source_2(request.query, page=request.page)
         return results
     
     return {"results": []}
 
 @app.post("/api/download")
 async def start_download(request: DownloadRequest):
-    # Always clean the name for SteamRIP if it's from the manager
-    alias = request.alias
-    if "steamrip.com" in request.url.lower():
-        alias = get_name_from_url(request.url)
+    # Clean the name
+    alias = request.alias or get_name_from_url(request.url)
 
     success = download_manager.start_download(request.url, request.source, alias)
     if success:

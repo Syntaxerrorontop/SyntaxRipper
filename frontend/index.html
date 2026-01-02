@@ -933,12 +933,12 @@
                         <div id="script-universal-downloader" class="script-panel">
                             <h2>Universal Downloader</h2>
                             <p style="color: #aaa; margin-bottom: 20px;">
-                                Download from supported providers (SteamRIP, Gofile, 1Fichier, etc.) using the internal Download Manager logic.
+                                Download from supported providers using the internal Download Manager logic.
                             </p>
                             <div class="form-group">
                                 <label>Target URL</label>
                                 <div class="input-row">
-                                    <input type="text" id="script-url-input" placeholder="https://steamrip.com/game-name...">
+                                    <input type="text" id="script-url-input" placeholder="https://example.com/item...">
                                     <button class="btn btn-primary" onclick="runUniversalDownloader()">Run Script</button>
                                 </div>
                                 <p class="hint">The download will be added to the Downloads queue.</p>
@@ -1282,6 +1282,28 @@
                             </div>
                             <p class="hint">Unlocks premium download speeds for supported hosts.</p>
                         </div>
+                    </div>
+
+                    <!-- Source Configuration -->
+                    <div class="settings-card">
+                        <h2><i class="fas fa-cog"></i> Source Configuration</h2>
+                        <div class="form-group">
+                            <label>Source 1 URL</label>
+                            <div class="input-row">
+                                <input type="text" id="source-1-url-input" placeholder="https://example.com/source1">
+                            </div>
+                            <p class="hint">Primary content and metadata source.</p>
+                        </div>
+                        <div class="form-group">
+                            <label>Source 2 URL</label>
+                            <div class="input-row">
+                                <input type="text" id="source-2-url-input" placeholder="https://example.com/source2">
+                            </div>
+                            <p class="hint">Secondary media source.</p>
+                        </div>
+                        <button id="save-sources-btn" class="btn btn-primary" style="width: 100%; margin-top: 10px;">
+                            <i class="fas fa-save"></i> Save Source URLs
+                        </button>
                     </div>
 
                     <!-- Tools Management -->
@@ -1813,7 +1835,96 @@
             content: '▶';
             font-size: 10px;
         }
+
+        .modal-input {
+            width: 100%;
+            padding: 12px;
+            background: #161616;
+            border: 1px solid #333;
+            color: white;
+            border-radius: 6px;
+            box-sizing: border-box;
+            margin-bottom: 15px;
+            outline: none;
+        }
+        .modal-input:focus {
+            border-color: var(--accent-color);
+        }
+
+        /* Loading & Status Animations */
+        .status-indicator {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .status-spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255,255,255,0.1);
+            border-left-color: var(--accent-color);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        .status-check {
+            color: #28a745;
+            font-size: 18px;
+            animation: fadeIn 0.3s ease forwards;
+        }
+        .status-error {
+            color: #ff6b6b;
+            font-size: 18px;
+            animation: fadeIn 0.3s ease forwards;
+        }
+        .btn-loading {
+            pointer-events: none;
+            opacity: 0.7;
+            position: relative;
+            color: transparent !important;
+        }
+        .btn-loading::after {
+            content: "";
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            top: 50%;
+            left: 50%;
+            margin: -10px 0 0 -10px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 0.8s linear infinite;
+        }
     </style>
+
+    <!-- Setup Wizard Modal -->
+    <div id="setup-modal-overlay" class="modal-overlay" style="display: none; z-index: 999999; background: #000; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: all;">
+        <div class="modal-card" style="max-width: 500px; border: 2px solid var(--accent-color); box-shadow: 0 0 50px rgba(0, 122, 204, 0.5); background: #0a0a0a;">
+            <h2 style="background: #111; color: var(--accent-color); border-bottom: 1px solid #222;"><i class="fas fa-lock"></i> System Locked</h2>
+            <div class="modal-body-scroll" style="background: #0a0a0a; padding: 30px;">
+                <p style="color: #fff; font-size: 15px; margin-bottom: 25px; line-height: 1.5;">Framework initialization required. Please enter your provider URLs to unlock the system.</p>
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; font-size: 11px; color: var(--accent-color); text-transform: uppercase; font-weight: bold;">Source 1: Primary Content</label>
+                    <input type="text" id="setup-source-1" class="modal-input" placeholder="e.g. steamrip.com" style="background: #111; border-color: #333;">
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; font-size: 11px; color: var(--accent-color); text-transform: uppercase; font-weight: bold;">Source 2: Secondary Media</label>
+                    <input type="text" id="setup-source-2" class="modal-input" placeholder="e.g. filmpalast.to" style="background: #111; border-color: #333;">
+                </div>
+                
+                <div id="setup-status-container" class="status-indicator" style="background: #111; padding: 15px; border-radius: 8px; border: 1px solid #222; margin-top: 10px;">
+                    <div id="setup-status-icon" class="status-spinner"></div>
+                    <span id="setup-status-text" style="color: #eee; font-family: monospace; font-size: 12px;">Waiting for input...</span>
+                </div>
+            </div>
+            <div class="modal-footer" style="background: #0a0a0a; border-top: 1px solid #222; padding: 20px 30px;">
+                <button id="setup-activate-btn" class="modal-btn modal-btn-primary" onclick="runInitialSetup()" style="width: 100%; padding: 15px; font-size: 14px; letter-spacing: 1px; font-weight: 800;">INITIALIZE FRAMEWORK</button>
+            </div>
+        </div>
+    </div>
 
     <script src="renderer.js"></script>
 </body>

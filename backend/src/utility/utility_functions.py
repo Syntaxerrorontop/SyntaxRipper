@@ -4,8 +4,6 @@ import urllib.parse
 
 from .utility_vars import CACHE_FOLDER
 
-STEAMRIP_VERSION_SELECTOR = "#the-post > div.entry-content.entry.clearfix > div.plus.tie-list-shortcode > ul > li:nth-child(6)"
-
 def hash_url(url: str) -> str:
     return hashlib.md5(url.encode('utf-8')).hexdigest()
 
@@ -72,23 +70,34 @@ def load_json(path):
     return {}
 
 def get_name_from_url(url):
-    myurl = url.rstrip("/").replace("https://steamrip.com/", "")
+    """
+    Extracts a clean title from a URL slug.
+    """
+    # 1. Strip protocol and common domains
+    myurl = url.rstrip("/")
+    parsed = urllib.parse.urlparse(myurl)
+    path = parsed.path.strip("/")
     
-    # 1. Handle 'free-download' slug
-    if "free-download" in myurl.lower():
-        data = myurl.lower().split("free-download")[0].rstrip("-")
+    if not path:
+        return "Unknown"
+        
+    slug = path.split("/")[-1]
+    
+    # 2. Handle 'free-download' slug if present
+    if "free-download" in slug.lower():
+        data = slug.lower().split("free-download")[0].rstrip("-")
     else:
-        data = myurl.lower()
+        data = slug.lower()
     
-    # 2. Remove common version/rip suffixes (e.g., -v1-0, -rip, -build-123)
+    # 3. Remove common version/rip suffixes (e.g., -v1-0, -rip, -build-123)
     data = re.sub(r"-v?\d+[\d\.-]*.*$", "", data)
     data = re.sub(r"-build-\d+.*$", "", data)
     data = re.sub(r"-rip.*$", "", data)
     
-    # 3. Final cleanup and formatting
+    # 4. Final cleanup and formatting
     finished = data.replace("-", " ").title().strip()
     
-    # Remove 'Free Download' if it's still in the text (for cases where it wasn't a slug)
+    # Remove generic 'Free Download' if still present
     finished = re.sub(r" Free Download.*$", "", finished, flags=re.IGNORECASE)
     
     return finished
@@ -183,7 +192,8 @@ def get_screenshots(page_content) -> list:
 
                     # Relative URLs
                     if processed_href.startswith("/"):
-                        processed_href = "https://steamrip.com" + processed_href
+                        base_url = "/".join(url.split("/")[:3]) if 'url' in locals() else ""
+                        processed_href = urljoin(base_url, processed_href)
                     
                     # Validation
                     if "/wp-content/uploads/" in processed_href:
@@ -201,37 +211,44 @@ def get_screenshots(page_content) -> list:
     return screenshots
 
 
-def _get_version_steamrip(url, scraper) -> str:
+def get_version_from_source(url, scraper, selector=None) -> str:
+    """
+    Fetches the version string from a source URL using a provided CSS selector.
+    """
     if not url.startswith("https"):
         return ""
-    response = scraper.get_html(url)
-    soup = BeautifulSoup(response, 'html.parser')
+    
+    # If no selector provided, try to load from config
+    if not selector:
+        from .utility_vars import CONFIG_FILE
+        config = load_json(CONFIG_FILE)
+        # Attempt to find which source this URL belongs to
+        for source_id, source_data in config.get("sources", {}).items():
+            source_url = source_data.get("source_url", "")
+            if source_url and source_url in url:
+                selector = source_data.get("selectors", {}).get("version_selector")
+                break
+    
+    if not selector:
+        logging.warning(f"No version selector found for {url}")
+        return "N/A"
 
-    element = soup.select_one(selector=STEAMRIP_VERSION_SELECTOR)
-    if element:
-        try:
-            version = element.text.strip().replace("Version: ", "")
-            logging.debug(version)
-            logging.debug(f"Request Successful: {url} Version: {version}")
-            return version
-        except Exception as e:
-            logging.error(f"Error parsing version from element for {url}: {e}")
-            return f"Error: Failed to parse version for {url}. Details: {e}"
-    else:
-        logging.warning(f"Element with selector '{STEAMRIP_VERSION_SELECTOR}' not found for {url}. Using fallback method...")
-        element = soup.select_one(selector=".plus > ul:nth-child(1) > li:nth-child(6)")
+    try:
+        response = scraper.get_html(url)
+        soup = BeautifulSoup(response, 'html.parser')
+
+        element = soup.select_one(selector=selector)
         if element:
-            try:
-                version = element.text.strip().replace("Version: ", "")
-                logging.debug(version)
-                logging.debug(f"Request Successful: {url} Version: {version}")
-                return version
-            except Exception as e:
-                logging.error(f"Error parsing version from fallback element for {url}: {e}")
-                return f"Error: Failed to parse version from fallback for {url}. Details: {e}"
+            version = element.text.strip().replace("Version: ", "")
+            logging.debug(f"Version found: {version}")
+            return version
         else:
-            logging.error(f"Neither primary nor fallback element found for version for {url}.")
-            return f"Error: Version element not found for {url}."
+            logging.warning(f"Version element not found with selector: {selector}")
+            return "Unknown"
+    except Exception as e:
+        logging.error(f"Error fetching version for {url}: {e}")
+        return f"Error: {e}"
+
 def _game_naming(folder, search_path=None):
     """
     Determines the main executable for a game.

@@ -183,7 +183,7 @@ class UserConfig:
             save_json(os.path.join(in_path, filename), self._data)
         
         self.SHUTIL_MOVE_ERROR_REPLACE = self._data["shutil_move_error_replace"]
-        self.INSTALL_COMMENREDIST_STEAMRIP = self._data["install_commen_redist"]
+        self.INSTALL_COMMON_REDIST = self._data["install_commen_redist"]
         self.SEARCH_GAMES = self._data["search"]
         self.SEARCH_MOVIES = self._data["search"]["movies"]
         self.SEARCH_SERIES = self._data["search"]["series"]
@@ -221,7 +221,7 @@ class UserConfig:
 
     def save(self):
         self._data["shutil_move_error_replace"] = self.SHUTIL_MOVE_ERROR_REPLACE
-        self._data["install_commen_redist"] = self.INSTALL_COMMENREDIST_STEAMRIP
+        self._data["install_commen_redist"] = self.INSTALL_COMMON_REDIST
         self._data["search"] = self.SEARCH_GAMES
         self._data["search"]["movies"] = self.SEARCH_MOVIES
         self._data["search"]["series"] = self.SEARCH_SERIES
